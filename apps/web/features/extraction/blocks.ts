@@ -4,12 +4,35 @@ import type { LayoutBlock, TextLine } from './types';
 
 /** A vertical gap larger than this multiple of the median gap starts a block. */
 const BLOCK_GAP_RATIO = 1.6;
-/** Relative font-size change that starts a new block. */
-const FONT_SIZE_CHANGE_RATIO = 0.15;
+/**
+ * Relative font-size change that starts a new block.
+ *
+ * Real documents set a subheading only a point above body text - 11.5pt over
+ * 10.5pt is a 9% change - so this has to be well under 0.1 or a heading merges
+ * into the paragraph that follows it.
+ */
+const FONT_SIZE_CHANGE_RATIO = 0.06;
 /** Indent, relative to font size, that marks a new first line. */
 const INDENT_RATIO = 0.6;
-/** Font size relative to body that marks a heading. */
-const HEADING_SIZE_RATIO = 1.12;
+/**
+ * Horizontal offset, as a share of page width, beyond which two consecutive
+ * lines cannot belong to the same block.
+ *
+ * A paragraph's first-line indent is a couple of em. An offset of a quarter of
+ * the page is a different element entirely - a right-aligned page number beside
+ * a footer, say - and must break the block even when the preceding line does
+ * not end a sentence.
+ */
+const SEPARATE_ELEMENT_OFFSET_RATIO = 0.25;
+/**
+ * Font size relative to body that marks a heading.
+ *
+ * Deliberately close to 1: a numbered subheading is often only half a point
+ * larger than body text. Undetected headings are costly, because section
+ * boundaries are what stop a reference section from swallowing the rest of
+ * the document.
+ */
+const HEADING_SIZE_RATIO = 1.04;
 /** Font size relative to body below which a bottom-of-page block is a footnote. */
 const FOOTNOTE_SIZE_RATIO = 0.85;
 /** Share of page height, measured from the bottom, in which footnotes live. */
@@ -18,6 +41,8 @@ const FOOTNOTE_BAND = 0.22;
 const BASELINE_SAME_LINE_RATIO = 0.35;
 
 const BOLD_FONT = /bold|black|heavy|semibold|demibold/i;
+/** A heading rarely fills more than this share of the column width. */
+const HEADING_WIDTH_SHARE = 0.7;
 const LIST_PREFIX = /^([•·●▪⁃–—-]|\(?\d{1,2}[.)]|\(?[a-zA-Z][.)])\s+/;
 const CAPTION_PREFIX = /^(table|figure|fig\.?|chart|exhibit|scheme|plate)\s*\d/i;
 const SENTENCE_END = /[.!?][’"')\]]?\s*$/;
@@ -41,8 +66,16 @@ export interface BlockOptions {
   documentId: string;
   pageNumber: number;
   pageHeight: number;
+  pageWidth: number;
   /** Median font size across the whole document; the body-text reference. */
   bodyFontSize: number;
+  /** Width of a text column on this page, for heading width heuristics. */
+  columnWidth: number;
+  /**
+   * The font name carrying most of the page's body text. Subset font names are
+   * opaque, but a block set in a DIFFERENT face from the body is still a signal.
+   */
+  bodyFontName?: string;
 }
 
 /**
@@ -133,6 +166,15 @@ export function groupBlocks(orderedLines: TextLine[], options: BlockOptions): La
     if (indent > line.fontSize * INDENT_RATIO && SENTENCE_END.test(previous.text)) {
       reasons.push(`first-line indent of ${indent.toFixed(1)}pt after a sentence end`);
     }
+    if (
+      options.pageWidth > 0 &&
+      Math.abs(indent) > options.pageWidth * SEPARATE_ELEMENT_OFFSET_RATIO
+    ) {
+      reasons.push(
+        `starts ${indent.toFixed(0)}pt from the block's left edge, more than ` +
+          `${Math.round(SEPARATE_ELEMENT_OFFSET_RATIO * 100)}% of the page width`,
+      );
+    }
 
     // Lines must descend within a column; anything else means our ordering is
     // not trustworthy for this page.
@@ -191,28 +233,61 @@ function classifyBlock(lines: TextLine[], options: BlockOptions): BlockClassific
     return { type: 'footnote', confidence: 0.7, evidence };
   }
 
+  // Headings are tested BEFORE lists. "1. Introduction" matches the numbered
+  // list pattern, and mistaking a numbered heading for a list item loses a
+  // section boundary - which is what lets a reference section run away and
+  // swallow the body of the document.
+  //
+  // Real PDFs embed subset fonts under opaque generated names such as "g_d0_f1",
+  // so a font NAME can never be relied on to spot bold text. The signals below
+  // are structural and work however the font is named.
+  const larger = fontSize > body * HEADING_SIZE_RATIO;
+  const unterminated = !SENTENCE_END.test(text);
+  const width = Math.max(...lines.map((line) => line.width));
+  const narrow = options.columnWidth > 0 && width < options.columnWidth * HEADING_WIDTH_SHARE;
+  const differentFace =
+    options.bodyFontName !== undefined &&
+    lines[0].fontName !== undefined &&
+    lines[0].fontName !== options.bodyFontName;
+
+  if (lines.length <= 3 && text.length <= 120 && (larger || isBold || differentFace)) {
+    const headingEvidence: string[] = [];
+    let confidence = 0.4;
+    if (larger) {
+      headingEvidence.push(
+        `font size ${fontSize.toFixed(1)}pt exceeds body size ${body.toFixed(1)}pt`,
+      );
+      confidence += 0.25;
+    }
+    if (isBold) {
+      headingEvidence.push('bold font name');
+      confidence += 0.15;
+    }
+    if (differentFace) {
+      headingEvidence.push(`set in a different face from the body text (${lines[0].fontName})`);
+      confidence += 0.1;
+    }
+    if (unterminated) {
+      headingEvidence.push('does not end with sentence punctuation');
+      confidence += 0.1;
+    }
+    if (narrow) {
+      headingEvidence.push(
+        `occupies ${((width / options.columnWidth) * 100).toFixed(0)}% of the column width`,
+      );
+      confidence += 0.05;
+    }
+    if (confidence >= 0.6) {
+      headingEvidence.push(`${lines.length} line(s), ${text.length} characters`);
+      return { type: 'heading', confidence: Math.min(0.9, confidence), evidence: headingEvidence };
+    }
+  }
+
   if (LIST_PREFIX.test(lines[0].text)) {
     evidence.push(
       `first line starts with a list marker: ${JSON.stringify(lines[0].text.slice(0, 8))}`,
     );
     return { type: 'list', confidence: 0.7, evidence };
-  }
-
-  const looksLikeHeading =
-    lines.length <= 3 &&
-    text.length <= 120 &&
-    (fontSize > body * HEADING_SIZE_RATIO || (isBold && !SENTENCE_END.test(text)));
-  if (looksLikeHeading) {
-    if (fontSize > body * HEADING_SIZE_RATIO) {
-      evidence.push(`font size ${fontSize.toFixed(1)}pt exceeds body size ${body.toFixed(1)}pt`);
-    }
-    if (isBold) evidence.push('bold font');
-    evidence.push(`${lines.length} line(s), ${text.length} characters`);
-    return {
-      type: 'heading',
-      confidence: fontSize > body * HEADING_SIZE_RATIO ? 0.8 : 0.6,
-      evidence,
-    };
   }
 
   evidence.push('default body classification');

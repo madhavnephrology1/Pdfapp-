@@ -422,6 +422,129 @@ export const FIXTURES = {
   scanned: scannedPdf,
   'mixed-scanned': mixedScannedPdf,
   'front-matter': frontMatterPdf,
+  'realistic-paper': realisticPaperPdf,
 } as const;
 
 export type FixtureName = keyof typeof FIXTURES;
+
+/* ------------------------------------------------------------------ */
+/* Fixture 8: the conditions that real producers create                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reproduces four structural traps found by running the pipeline over PDFs
+ * produced by a real layout engine rather than by this writer:
+ *
+ *  1. Headings are only ~1.1x body size and share the BODY font, because real
+ *     PDFs embed subset fonts whose names carry no "Bold" to match on.
+ *  2. A centred byline crosses the column gutter, so the gutter is a
+ *     low-density corridor rather than an empty one.
+ *  3. Section headings are numbered ("1. Introduction"), which also matches the
+ *     numbered-list pattern.
+ *  4. Body content continues AFTER a reference section, so the reference run
+ *     must be contained rather than swallowing the rest of the document.
+ */
+export const REALISTIC_BODY_SIZE = 10.5;
+export const REALISTIC_HEADING_SIZE = 11.5;
+
+export function realisticPaperPdf(): Uint8Array {
+  const width = 595;
+  const height = 842;
+  const leftX = 51;
+  const rightX = 307;
+  const columnTop = height - 150;
+  const lineHeight = 13;
+
+  const column = (x: number, top: number, lines: string[], size = REALISTIC_BODY_SIZE): TextRun[] =>
+    lines.map((text, index) => ({
+      x,
+      y: top - index * lineHeight,
+      text,
+      size,
+      font: 'F1' as const,
+    }));
+
+  const page1: PageSpec = {
+    width,
+    height,
+    runs: [
+      // Running header: two elements on one baseline, far apart.
+      { x: leftX, y: height - 34, text: REPEATED_HEADER_TEXT, size: 8, font: 'F1' },
+      { x: 430, y: height - 34, text: 'Vol. 12, No. 4', size: 8, font: 'F1' },
+
+      // Full-width title, then a centred byline that CROSSES the gutter.
+      {
+        x: 120,
+        y: height - 84,
+        text: 'Tubular Sodium Transport and Feedback',
+        size: 15,
+        font: 'F1',
+      },
+      { x: 205, y: height - 112, text: 'M. Alvarez and L. Chen', size: 10, font: 'F1' },
+
+      // Numbered headings at only 1.1x body size, in the SAME face as body.
+      ...column(leftX, columnTop, ['1. Introduction'], REALISTIC_HEADING_SIZE),
+      ...column(leftX, columnTop - 18, [
+        'Sodium handling in the proximal',
+        'tubule is mediated primarily by',
+        'the exchanger described below.',
+      ]),
+      ...column(leftX, columnTop - 76, ['2. Methods'], REALISTIC_HEADING_SIZE),
+      ...column(leftX, columnTop - 94, [
+        'Micropuncture was performed in',
+        'anaesthetised animals over one',
+        'hundred separate collections.',
+      ]),
+
+      ...column(rightX, columnTop, ['3. Results'], REALISTIC_HEADING_SIZE),
+      ...column(rightX, columnTop - 18, [
+        'Fractional excretion of sodium',
+        'rose after transporter blockade',
+        'and reversed within an hour.',
+      ]),
+      ...column(rightX, columnTop - 76, ['References'], REALISTIC_HEADING_SIZE),
+      ...column(
+        rightX,
+        columnTop - 94,
+        ['Alvarez, M. (2019). Proximal', '   transport. Kidney Int, 95(3),', '   512-524.'],
+        9,
+      ),
+
+      // Body content AFTER the references: must not be swallowed.
+      ...column(rightX, columnTop - 146, ['4. Discussion'], REALISTIC_HEADING_SIZE),
+      ...column(rightX, columnTop - 164, [
+        'These findings are consistent',
+        'with earlier reports of distal',
+        'sodium delivery in the nephron.',
+      ]),
+
+      // Footer and page number on DIFFERENT baselines, far apart horizontally.
+      { x: leftX, y: 44, text: REPEATED_FOOTER_TEXT, size: 7.5, font: 'F1' },
+      { x: 520, y: 28, text: '1 of 2', size: 9, font: 'F1' },
+    ],
+  };
+
+  const page2: PageSpec = {
+    ...page1,
+    runs: [
+      { x: leftX, y: height - 34, text: REPEATED_HEADER_TEXT, size: 8, font: 'F1' },
+      { x: 430, y: height - 34, text: 'Vol. 12, No. 4', size: 8, font: 'F1' },
+      { x: 205, y: height - 112, text: 'M. Alvarez and L. Chen', size: 10, font: 'F1' },
+      ...column(leftX, columnTop, ['5. Limitations'], REALISTIC_HEADING_SIZE),
+      ...column(leftX, columnTop - 18, [
+        'The preparation used here does',
+        'not model chronic disease well.',
+      ]),
+      ...column(rightX, columnTop, ['6. Conclusion'], REALISTIC_HEADING_SIZE),
+      ...column(rightX, columnTop - 18, [
+        'Proximal transport determines',
+        'the load reaching the distal',
+        'nephron under these conditions.',
+      ]),
+      { x: leftX, y: 44, text: REPEATED_FOOTER_TEXT, size: 7.5, font: 'F1' },
+      { x: 520, y: 28, text: '2 of 2', size: 9, font: 'F1' },
+    ],
+  };
+
+  return buildPdf([page1, page2], { title: 'Realistic Paper Fixture' });
+}
