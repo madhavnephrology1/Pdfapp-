@@ -10,6 +10,11 @@ export async function extractFixture(
   bytes: Uint8Array,
   documentId = 'doc',
 ): Promise<ExtractionResult> {
+  return extractDocument(documentId, await readPageInputs(bytes));
+}
+
+/** The raw per-page input the pipeline consumes, for tests that need prefixes. */
+export async function readPageInputs(bytes: Uint8Array): Promise<PageExtractionInput[]> {
   const { doc, close } = await loadPdfInNode(bytes);
   try {
     const pageInputs: PageExtractionInput[] = [];
@@ -36,7 +41,7 @@ export async function extractFixture(
       });
       page.cleanup();
     }
-    return extractDocument(documentId, pageInputs);
+    return pageInputs;
   } finally {
     await close();
   }

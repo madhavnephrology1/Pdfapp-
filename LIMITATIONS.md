@@ -4,8 +4,8 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **210** unit and integration tests in the web
-app, **88** in the API, and **22** end-to-end tests in Chromium.
+Test counts as of this revision: **249** unit and integration tests in the web
+app, **88** in the API, and **24** end-to-end tests in Chromium.
 
 ---
 
@@ -180,20 +180,50 @@ structure tree would be more reliable.
 
 Measured informally on the generated fixtures, in this container:
 
-|                                 |                                                                  |
-| ------------------------------- | ---------------------------------------------------------------- |
-| 1-page document, full pipeline  | well under a second                                              |
-| 50-page document, full pipeline | ~0.5 s in Node; a few seconds in the browser including render    |
-| First rendered page             | as soon as PDF.js opens the document, before extraction finishes |
-| First playable audio            | after extraction completes                                       |
+|                                                 |                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| 1-page document, full pipeline                  | well under a second                                              |
+| 50-page document, full pipeline                 | ~0.5 s in Node; a few seconds in the browser including render    |
+| First rendered page                             | as soon as PDF.js opens the document, before extraction finishes |
+| First readable text on the 50-page test fixture | 46 ms, against 155 ms for the whole document (Node)              |
 
-**Extraction is not incremental.** Classification needs document-wide context —
-which strings repeat across pages, the body font size — so the reading text
-appears only when every page has been extracted. The PDF viewer is usable
-immediately, and per-page progress is reported throughout, but the first
-_playable_ audio waits for the whole document. On a very large PDF that wait is
-noticeable. Making the first pages readable before the rest are classified is the
-clearest next improvement.
+**Extraction is incremental, and early passes are provisional.** The pipeline is
+a pure function of the pages it is given, so the worker runs it over a growing
+prefix — after page 1, then 2, 4, 8, 16 and so on — and sends each result to the
+interface. Reading and playback become available at the first pass. Passes
+double rather than running at a fixed interval, so the extra work stays below one
+additional full pass however long the document is.
+
+The catch is real and is stated in the interface rather than hidden: **a pass
+over part of a document classifies with less evidence than a pass over all of
+it.** A running header cannot be recognised as one until it has been seen on
+several pages, so on the first pass it is read aloud. This errs in the safe
+direction — an early pass reads _more_ than the final pass will, never less, so
+no subject matter is dropped — but it means the skip decisions on screen can
+change while analysis continues. While that is happening the app says so, and the
+left panel names how many pages the current classification covers.
+
+Consequences worth knowing:
+
+- The reading position is carried across each pass by matching sentence text,
+  because sentence ids encode a block index that can shift when a wider view of
+  the document changes the estimated body font size. If the passage the reader
+  was on has since been reclassified as furniture, playback resumes at the
+  nearest following sentence rather than at the start of the document.
+- A queue rebuilt while audio is playing is held until the next seam — a chunk
+  boundary on a server voice, a sentence boundary on the browser's engine — or
+  until playback pauses or stops. A new pass therefore never cuts off a sentence
+  mid-word, but audio can lag the reader panel by up to one chunk: for that
+  interval it may still speak a passage the panel already shows as skipped. It
+  is verbatim source text either way. Resuming after a pause restarts the
+  current sentence rather than the exact millisecond, because the chunk it sat in
+  has been rebuilt.
+- "Stop analysing" keeps what has been read so far instead of discarding the
+  document. The left panel then goes on saying which pages were never examined.
+- Whether audio actually starts before analysis finishes is a matter of timing,
+  so it is covered by unit and integration tests rather than by an end-to-end
+  test that would be flaky on fast machines. The end-to-end suite instead
+  asserts that no provisional state is left behind once the final pass lands.
 
 The following are **not** measured, despite being listed as goals: filter
 precision against human-labelled ground truth, OCR confidence distribution,

@@ -25,6 +25,7 @@ import {
   wordProgress,
   wordTimingsForSentence,
 } from '@/features/playback/timing';
+import { remapSentence } from '@/features/playback/resume';
 import type { ReadingQueue } from '@/features/reader/queue';
 import {
   BROWSER_PROVIDER,
@@ -69,6 +70,12 @@ interface PlaybackStoreState extends PlaybackSnapshot {
   chunkStates: Record<string, ChunkRuntimeState>;
   /** Sentences in queue order, for prev/next navigation. */
   queueSentences: SentenceRecord[];
+  /**
+   * A rebuilt queue that arrived mid-utterance. Applying it immediately would
+   * cut the audio off, so it waits for a pause or for the end of what is
+   * already prepared. Null when the prepared queue is up to date.
+   */
+  pendingQueue: { queue: ReadingQueue; documentId: string } | null;
   voices: VoiceOption[];
   serverConfigured: boolean;
   serverProviderName: string | null;
@@ -352,14 +359,22 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         });
       },
       onEnd: () => {
-        const after = get();
-        if (after.state !== 'playing') return;
-        const nextIndex = index + 1;
-        if (nextIndex >= after.queueSentences.length) {
-          dispatch({ type: 'END_OF_QUEUE' });
-          return;
-        }
-        speakSentenceWithBrowser(after.queueSentences[nextIndex].id);
+        if (get().state !== 'playing') return;
+        // The gap between two sentences is a seam where a newly analysed queue
+        // can be taken on without interrupting anything, so it is checked here
+        // rather than only at the end of the document.
+        void continueIntoPendingQueue(sentence.id).then((continued) => {
+          if (continued) return;
+          // Re-read the queue: a pass may have landed and been applied even
+          // when playback did not continue into it.
+          const now = get();
+          const resumeAt = now.queueSentences.findIndex((s) => s.id === sentence.id) + 1;
+          if (resumeAt <= 0 || resumeAt >= now.queueSentences.length) {
+            dispatch({ type: 'END_OF_QUEUE' });
+            return;
+          }
+          speakSentenceWithBrowser(now.queueSentences[resumeAt].id);
+        });
       },
       onError: (message) => dispatch({ type: 'ERROR', message }),
     });
@@ -412,14 +427,25 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
     if (bounds && duration > 0) element.currentTime = bounds.audioStart;
 
     element.onended = () => {
-      const after = get();
-      const index = after.chunks.findIndex((chunk) => chunk.id === match.chunk.id);
-      const nextChunk = after.chunks[index + 1];
-      if (!nextChunk) {
-        dispatch({ type: 'END_OF_QUEUE' });
-        return;
-      }
-      void playFromSentence(nextChunk.sentenceIds[0]);
+      // A chunk boundary is the natural seam for taking on a queue rebuilt by a
+      // later analysis pass: nothing is playing, and the next chunk has not
+      // started. Waiting for the end of the whole queue instead would mean
+      // reading a long provisional prefix that is already known to be stale.
+      const lastSpoken = match.chunk.sentenceIds.at(-1) ?? null;
+      void continueIntoPendingQueue(lastSpoken).then((continued) => {
+        if (continued) return;
+        const after = get();
+        const index = after.chunks.findIndex((chunk) => chunk.id === match.chunk.id);
+        // The chunk that just finished is gone from a rebuilt queue, and there
+        // was nowhere to carry on from. Stop here rather than falling back to
+        // index 0, which would silently restart the document.
+        const nextChunk = index < 0 ? undefined : after.chunks[index + 1];
+        if (!nextChunk) {
+          dispatch({ type: 'END_OF_QUEUE' });
+          return;
+        }
+        void playFromSentence(nextChunk.sentenceIds[0]);
+      });
     };
     element.onerror = () => {
       dispatch({
@@ -446,11 +472,123 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
     prefetchFrom(index + 1);
   };
 
+  /**
+   * Rebuilds the synthesis chunks for a queue, keeping the reader's place.
+   *
+   * The queue is rebuilt whenever a setting changes and, while a document is
+   * still being analysed, each time another pass covers more pages. Both can
+   * change which sentences exist and what their ids are, so the active sentence
+   * is carried across by matching rather than by index.
+   */
+  const applyQueue = (queue: ReadingQueue, documentId: string): void => {
+    cancelInFlight();
+    browserHandle?.cancel();
+    stopTicker();
+    chunkTimings.clear();
+
+    // The rebuilt chunks get new ids, so nothing can reach the audio generated
+    // for the old ones. It is released here rather than left to accumulate: a
+    // long document rebuilds its queue once per analysis pass.
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.onended = null;
+      audioElement.onerror = null;
+    }
+    for (const url of audioUrlOrder) URL.revokeObjectURL(url);
+    audioUrlOrder = [];
+
+    const state = get();
+    const voice = state.voices.find((candidate) => candidate.id === state.voiceId);
+    const provider =
+      voice?.source === 'server' ? (state.serverProviderName ?? 'server') : BROWSER_PROVIDER;
+
+    const chunks = buildChunks(queue.entries, {
+      maxChars: provider === BROWSER_PROVIDER ? 4000 : state.maxCharsPerChunk,
+      voiceId: state.voiceId ?? '',
+      speed: state.speed,
+      language: 'en-US',
+      provider,
+      documentId,
+    });
+
+    // Hard guarantee that queueing did not change the text to be spoken.
+    assertChunkingIsLossless(queue.entries, chunks);
+
+    const sentences = queue.entries.map((entry) => entry.sentence);
+    const match = remapSentence(state.activeSentenceId, state.queueSentences, sentences);
+    const active = sentences[match?.index ?? 0] ?? null;
+
+    set({
+      chunks,
+      chunkStates: {},
+      queueSentences: sentences,
+      pendingQueue: null,
+      providerName: provider,
+      activeSentenceId: active?.id ?? null,
+      activeParagraphId: active?.paragraphId ?? null,
+      activeRegionId: active?.regionId ?? null,
+      activePage: active?.pageNumber ?? null,
+      // The audio for the old chunks is gone, so nothing is loaded any more.
+      activeChunkId: null,
+      activeWordIndex: null,
+      audioTimestamp: 0,
+      // Prepared, not playing: audio never starts without a deliberate action.
+      state: queue.entries.length > 0 ? 'paused' : 'idle',
+      error: null,
+    });
+  };
+
+  /** Applies a queue that was held back during playback. */
+  const flushPendingQueue = (): boolean => {
+    const pending = get().pendingQueue;
+    if (!pending) return false;
+    applyQueue(pending.queue, pending.documentId);
+    return true;
+  };
+
+  /**
+   * Called when playback runs out of prepared audio.
+   *
+   * While a document is still being analysed, "the end of the queue" usually
+   * only means the end of the pages analysed so far. If more text has arrived
+   * in the meantime, carry on into it instead of stopping.
+   *
+   * Returns true when playback continued.
+   */
+  const continueIntoPendingQueue = async (lastSpokenId: string | null): Promise<boolean> => {
+    const before = get();
+    if (!before.pendingQueue) return false;
+    const wasPlaying = before.state === 'playing';
+    const previousSentences = before.queueSentences;
+
+    if (!flushPendingQueue()) return false;
+    if (!wasPlaying) return false;
+
+    const { queueSentences } = get();
+    const match = remapSentence(lastSpokenId, previousSentences, queueSentences);
+    if (!match) return false;
+    // An exact match is the sentence that just finished, so move past it. An
+    // approximate one already points at the next sentence still in the queue.
+    const target = queueSentences[match.exact ? match.index + 1 : match.index];
+    if (!target) return false;
+
+    dispatch({
+      type: 'SEEK_SENTENCE',
+      sentenceId: target.id,
+      paragraphId: target.paragraphId,
+      regionId: target.regionId,
+      page: target.pageNumber,
+    });
+    await playFromSentence(target.id);
+    return true;
+  };
+
   return {
     ...initialPlaybackSnapshot,
     chunks: [],
     chunkStates: {},
     queueSentences: [],
+    pendingQueue: null,
     voices: [],
     serverConfigured: false,
     serverProviderName: null,
@@ -495,44 +633,15 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
     },
 
     prepareQueue(queue, documentId) {
-      cancelInFlight();
-      browserHandle?.cancel();
-      stopTicker();
-      chunkTimings.clear();
-
-      const state = get();
-      const voice = state.voices.find((candidate) => candidate.id === state.voiceId);
-      const provider =
-        voice?.source === 'server' ? (state.serverProviderName ?? 'server') : BROWSER_PROVIDER;
-
-      const chunks = buildChunks(queue.entries, {
-        maxChars: provider === BROWSER_PROVIDER ? 4000 : state.maxCharsPerChunk,
-        voiceId: state.voiceId ?? '',
-        speed: state.speed,
-        language: 'en-US',
-        provider,
-        documentId,
-      });
-
-      // Hard guarantee that queueing did not change the text to be spoken.
-      assertChunkingIsLossless(queue.entries, chunks);
-
-      set({
-        chunks,
-        chunkStates: {},
-        queueSentences: queue.entries.map((entry) => entry.sentence),
-        providerName: provider,
-        activeSentenceId: queue.entries[0]?.sentence.id ?? null,
-        activeParagraphId: queue.entries[0]?.sentence.paragraphId ?? null,
-        activeRegionId: queue.entries[0]?.sentence.regionId ?? null,
-        activePage: queue.entries[0]?.sentence.pageNumber ?? null,
-        activeChunkId: null,
-        activeWordIndex: null,
-        audioTimestamp: 0,
-        // Prepared, not playing: audio never starts without a deliberate action.
-        state: queue.entries.length > 0 ? 'paused' : 'idle',
-        error: null,
-      });
+      const { state } = get();
+      if (state === 'playing' || state === 'buffering') {
+        // Rebuilding the chunks would discard the audio that is playing right
+        // now. Hold the new queue instead; `pause`, `stop` and the end of the
+        // prepared audio all pick it up.
+        set({ pendingQueue: { queue, documentId } });
+        return;
+      }
+      applyQueue(queue, documentId);
     },
 
     async play() {
@@ -571,6 +680,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       else audioElement?.pause();
       stopTicker();
       dispatch({ type: 'PAUSE' });
+      // Now that nothing is being spoken, take on any queue that was held back
+      // while it was. Playback resumes from the start of the current sentence
+      // rather than the exact millisecond, because the chunk it sat in has been
+      // rebuilt.
+      flushPendingQueue();
     },
 
     stop() {
@@ -585,6 +699,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       stopTicker();
       cancelInFlight();
       dispatch({ type: 'STOP' });
+      flushPendingQueue();
     },
 
     async next() {
@@ -726,6 +841,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       for (const url of audioUrlOrder) URL.revokeObjectURL(url);
       audioUrlOrder = [];
       chunkTimings.clear();
+      set({ pendingQueue: null });
     },
   };
 });

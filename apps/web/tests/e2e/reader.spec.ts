@@ -12,8 +12,13 @@ async function upload(page: Page, fixture: Parameters<typeof writeFixture>[0]): 
   const path = await writeFixture(fixture);
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', path);
-  // Extraction finished when the reading text appears.
+  // Reading text appears as soon as the first pages have been analysed, which
+  // is the point of the incremental pipeline. Most tests below assert on
+  // classification that only a whole-document view can produce — a running
+  // header cannot be recognised from one page — so they wait for the final
+  // pass, reported by the extraction progress caption.
   await expect(page.locator('#reading-text')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/\d+ pages extracted/)).toBeVisible({ timeout: 60_000 });
 }
 
 test.describe('upload and extraction', () => {
@@ -29,6 +34,19 @@ test.describe('upload and extraction', () => {
     await expect(page.getByRole('navigation', { name: 'Document navigation' })).toContainText(
       '1 page',
     );
+  });
+
+  test('leaves no provisional state behind once the last page is analysed', async ({ page }) => {
+    await upload(page, 'fifty-page');
+
+    const nav = page.getByRole('navigation', { name: 'Document navigation' });
+    await expect(nav).toContainText('50 pages');
+    // The warnings that qualify a partial classification must be gone: nothing
+    // may be left describing the document as provisional once it is not.
+    await expect(nav).not.toContainText('provisional');
+    await expect(nav).not.toContainText('were analysed');
+    await expect(page.getByText(/can be read now/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Stop analysing' })).toHaveCount(0);
   });
 
   test('joins a word split across lines and never shows the broken form', async ({ page }) => {

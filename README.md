@@ -387,7 +387,12 @@ server provider.
 **Extraction is slow on a very large PDF.**
 Extraction runs in a Web Worker, so the interface stays responsive, but a
 thousand-page document takes time and holds two copies of the file in memory
-(one for rendering, one for the worker). See LIMITATIONS.md.
+(one for rendering, one for the worker). You do not have to wait for it: the
+worker analyses a growing prefix and the reader becomes playable after the first
+page. Until the last page has been seen the classification is provisional, and
+the app says so — a running header cannot be recognised as one until it has
+appeared on several pages, so it is read aloud at first. An early pass always
+reads more than the final pass will, never less. See LIMITATIONS.md.
 
 **Content Review shows something being skipped that should be read.**
 Click _Read this_ on that region, or _Restore everything that was skipped_. Your

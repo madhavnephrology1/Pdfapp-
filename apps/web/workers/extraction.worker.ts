@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 
+import { partialMilestones } from '@/features/extraction/milestones';
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
 import { PdfLoadError, toPdfLoadError } from '@/lib/pdf';
-import type { DoneMessage, WorkerRequest, WorkerResponse } from './protocol';
+import type { ExtractionPayload, WorkerRequest, WorkerResponse } from './protocol';
 
 /**
  * Extraction worker.
@@ -11,6 +12,13 @@ import type { DoneMessage, WorkerRequest, WorkerResponse } from './protocol';
  * interface stays responsive while a large document is processed. The UI thread
  * keeps its own copy of the file for rendering; this worker receives a copy and
  * releases it as soon as extraction finishes.
+ *
+ * Results are sent in two kinds of message. `partial` carries a complete pass
+ * over the pages read so far, so a long document becomes readable and playable
+ * long before the last page is reached; `done` carries the final pass over the
+ * whole document. Each pass replaces the previous one, and the UI marks a
+ * partial pass as provisional because document-wide evidence — repeated
+ * headers, where the reference list starts — is not available yet.
  */
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
@@ -20,6 +28,22 @@ let cancelled = false;
 const post = (message: WorkerResponse, transfer?: Transferable[]): void => {
   scope.postMessage(message, transfer ?? []);
 };
+
+type PipelineResult = ReturnType<typeof extractDocument>;
+
+const payloadOf = (result: PipelineResult): ExtractionPayload => ({
+  pages: result.pages,
+  regions: result.regions,
+  paragraphs: result.paragraphs,
+  sentences: result.sentences,
+  outline: result.outline,
+  normalizedText: result.normalizedText,
+  rawItemCount: result.rawItems.length,
+  duplicatesRemoved: result.removedDuplicates.length,
+  tableRows: [...result.tableRows.entries()],
+  rawItems: result.rawItems,
+  bodyFontSize: result.bodyFontSize,
+});
 
 scope.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
@@ -32,6 +56,36 @@ scope.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
     void runExtraction(request.documentId, request.data, request.password);
   }
 });
+
+/**
+ * Runs the pipeline over the pages read so far and sends the result.
+ *
+ * A provisional pass must never be able to lose the document. If the pipeline
+ * throws on a prefix, the pass is skipped and extraction carries on: the final
+ * pass covers the same pages, so a genuine defect still surfaces as an error
+ * rather than being swallowed here.
+ */
+function postPartialPass(
+  documentId: string,
+  pageInputs: PageExtractionInput[],
+  pageCount: number,
+): void {
+  try {
+    const result = extractDocument(documentId, pageInputs);
+    post({
+      type: 'partial',
+      ...payloadOf(result),
+      pagesAnalyzed: pageInputs.length,
+      pagesTotal: pageCount,
+    });
+  } catch (error) {
+    console.warn(
+      `[extraction] provisional pass over ${pageInputs.length} page(s) failed; ` +
+        'continuing to the full pass.',
+      error,
+    );
+  }
+}
 
 async function runExtraction(
   documentId: string,
@@ -84,6 +138,7 @@ async function runExtraction(
     });
 
     const pageInputs: PageExtractionInput[] = [];
+    const milestones = new Set(partialMilestones(pageCount));
 
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
       if (cancelled) {
@@ -128,6 +183,11 @@ async function runExtraction(
         pagesExtracted: pageNumber,
         pagesTotal: pageCount,
       });
+
+      if (milestones.has(pageInputs.length) && !cancelled) {
+        postPartialPass(documentId, pageInputs, pageCount);
+      }
+
       // Yield so cancellation and progress messages are processed promptly.
       if (pageNumber % 5 === 0) await Promise.resolve();
     }
@@ -151,21 +211,12 @@ async function runExtraction(
       pagesTotal: pageCount,
     });
 
-    const done: DoneMessage = {
+    post({
       type: 'done',
-      pages: result.pages,
-      regions: result.regions,
-      paragraphs: result.paragraphs,
-      sentences: result.sentences,
-      outline: result.outline,
-      normalizedText: result.normalizedText,
-      rawItemCount: result.rawItems.length,
-      duplicatesRemoved: result.removedDuplicates.length,
-      tableRows: [...result.tableRows.entries()],
-      rawItems: result.rawItems,
-      bodyFontSize: result.bodyFontSize,
-    };
-    post(done);
+      ...payloadOf(result),
+      pagesAnalyzed: pageInputs.length,
+      pagesTotal: pageCount,
+    });
   } catch (error) {
     if (error instanceof PdfLoadError) {
       post({

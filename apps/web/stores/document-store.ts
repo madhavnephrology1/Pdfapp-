@@ -16,7 +16,7 @@ import { DEFAULT_SETTINGS, mergeSettings } from '@/features/settings/defaults';
 import { documentIdFor, fingerprintFile } from '@/lib/fingerprint';
 import { isPdfFile } from '@/lib/pdf';
 import { loadPosition, loadSettings, saveSettings, type StorageFullError } from '@/lib/persistence';
-import type { WorkerRequest, WorkerResponse } from '@/workers/protocol';
+import type { ExtractionPayload, WorkerRequest, WorkerResponse } from '@/workers/protocol';
 
 export interface AppError {
   title: string;
@@ -49,6 +49,18 @@ interface DocumentState {
   outline: OutlineNode[];
   duplicatesRemoved: number;
 
+  /** Pages in the file, known as soon as the PDF header has been read. */
+  totalPages: number;
+  /**
+   * Pages covered by the classification currently on screen. While this is
+   * below `totalPages` the reading text is provisional: it is verbatim source
+   * text, but which parts are skipped can still change once the rest of the
+   * document has been seen.
+   */
+  pagesAnalyzed: number;
+  /** True while the worker is still analysing pages. */
+  analyzing: boolean;
+
   progress: ExtractionProgress;
   settings: DocumentSettings;
   queue: ReadingQueue;
@@ -61,6 +73,7 @@ interface DocumentState {
 
   openFile: (file: File, password?: string) => Promise<void>;
   cancelProcessing: () => void;
+  stopAnalysis: () => void;
   reset: () => void;
   setSettings: (update: Partial<DocumentSettings>) => void;
   setRegionOverride: (regionId: string, decision: 'include' | 'exclude' | null) => void;
@@ -87,6 +100,24 @@ const initialProgress: ExtractionProgress = {
   failedPages: [],
 };
 
+/** The extraction fields a pass carries, shared by partial and final results. */
+function documentFieldsFrom(
+  payload: ExtractionPayload,
+): Pick<
+  DocumentState,
+  'pages' | 'regions' | 'paragraphs' | 'sentences' | 'rawItems' | 'outline' | 'duplicatesRemoved'
+> {
+  return {
+    pages: payload.pages,
+    regions: payload.regions,
+    paragraphs: payload.paragraphs,
+    sentences: payload.sentences,
+    rawItems: payload.rawItems,
+    outline: payload.outline,
+    duplicatesRemoved: payload.duplicatesRemoved,
+  };
+}
+
 let worker: Worker | null = null;
 
 function terminateWorker(): void {
@@ -110,6 +141,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   rawItems: [],
   outline: [],
   duplicatesRemoved: 0,
+  totalPages: 0,
+  pagesAnalyzed: 0,
+  analyzing: false,
   progress: initialProgress,
   settings: { ...DEFAULT_SETTINGS },
   queue: emptyQueue,
@@ -163,6 +197,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       paragraphs: [],
       rawItems: [],
       outline: [],
+      totalPages: 0,
+      pagesAnalyzed: 0,
+      analyzing: true,
       queue: emptyQueue,
       progress: { ...initialProgress, phase: 'loading' },
       resumePrompt: storedPosition
@@ -183,6 +220,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       switch (message.type) {
         case 'progress':
           set((state) => ({
+            totalPages: message.pagesTotal || state.totalPages,
             progress: {
               ...state.progress,
               phase: message.phase,
@@ -206,19 +244,29 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           }));
           break;
 
-        case 'done': {
-          const settings = get().settings;
-          const queue = buildReadingQueue(message.regions, message.sentences, settings);
+        // A pass over the pages read so far. The reader becomes usable here, and
+        // each later pass replaces this one wholesale.
+        case 'partial': {
+          const queue = buildReadingQueue(message.regions, message.sentences, get().settings);
           set((state) => ({
             status: 'ready',
-            pages: message.pages,
-            regions: message.regions,
-            paragraphs: message.paragraphs,
-            sentences: message.sentences,
-            rawItems: message.rawItems,
-            outline: message.outline,
-            duplicatesRemoved: message.duplicatesRemoved,
+            ...documentFieldsFrom(message),
             queue,
+            totalPages: message.pagesTotal || state.totalPages,
+            pagesAnalyzed: message.pagesAnalyzed,
+          }));
+          break;
+        }
+
+        case 'done': {
+          const queue = buildReadingQueue(message.regions, message.sentences, get().settings);
+          set((state) => ({
+            status: 'ready',
+            ...documentFieldsFrom(message),
+            queue,
+            totalPages: message.pagesTotal || state.totalPages,
+            pagesAnalyzed: message.pagesAnalyzed,
+            analyzing: false,
             progress: { ...state.progress, phase: 'done' },
           }));
           terminateWorker();
@@ -228,6 +276,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         case 'error':
           set({
             status: 'error',
+            analyzing: false,
             passwordRequired:
               message.code === 'password-required' || message.code === 'wrong-password',
             error: {
@@ -249,6 +298,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     worker.onerror = () => {
       set({
         status: 'error',
+        analyzing: false,
         error: {
           title: 'Processing failed',
           message: 'The document processor stopped unexpectedly.',
@@ -272,7 +322,23 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   cancelProcessing() {
     if (worker) worker.postMessage({ type: 'cancel' } satisfies WorkerRequest);
     terminateWorker();
-    set({ status: 'empty', progress: initialProgress });
+    set({ status: 'empty', analyzing: false, progress: initialProgress });
+  },
+
+  /**
+   * Stops analysing further pages but keeps what has already been read.
+   *
+   * Unlike cancelling, this leaves a usable document behind. `pagesAnalyzed`
+   * stays below `totalPages`, so the interface goes on saying which pages were
+   * never examined rather than presenting a partial document as a whole one.
+   */
+  stopAnalysis() {
+    if (worker) worker.postMessage({ type: 'cancel' } satisfies WorkerRequest);
+    terminateWorker();
+    set((state) => ({
+      analyzing: false,
+      progress: { ...state.progress, phase: 'done' },
+    }));
   },
 
   reset() {
@@ -291,6 +357,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       rawItems: [],
       outline: [],
       duplicatesRemoved: 0,
+      totalPages: 0,
+      pagesAnalyzed: 0,
+      analyzing: false,
       progress: initialProgress,
       queue: emptyQueue,
       error: null,
@@ -344,10 +413,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   setCurrentPage(page) {
-    const { pages } = get();
-    set({
-      currentPage: Math.min(Math.max(1, page), Math.max(1, pages.length)),
-    });
+    // Clamped to the pages in the FILE, not to the pages analysed so far: the
+    // viewer can render a page long before its text has been classified.
+    const { pages, totalPages } = get();
+    const last = Math.max(1, totalPages, pages.length);
+    set({ currentPage: Math.min(Math.max(1, page), last) });
   },
 
   dismissResumePrompt() {
