@@ -1,0 +1,38 @@
+{
+  "name": "pdf-human-reader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upload a PDF and listen to its meaningful text in a natural voice, with full traceability back to the source document.",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @pdfreader/web",
+    "build": "npm run build --workspace @pdfreader/web",
+    "start": "npm run start --workspace @pdfreader/web",
+    "lint": "npm run lint --workspace @pdfreader/web",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,css,md}\"",
+    "typecheck": "npm run typecheck --workspace @pdfreader/web",
+    "test": "npm run test --workspace @pdfreader/web",
+    "test:unit": "npm run test:unit --workspace @pdfreader/web",
+    "test:integration": "npm run test:integration --workspace @pdfreader/web",
+    "test:e2e": "npm run test:e2e --workspace @pdfreader/web",
+    "fixtures": "node scripts/generate-fixtures.mjs",
+    "api:dev": "cd apps/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "api:test": "cd apps/api && python -m pytest -q",
+    "verify": "npm run format:check && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "//overrides": "Next pins transitive versions of postcss and sharp that carry known high-severity advisories. These overrides pull both to patched releases; see LIMITATIONS.md.",
+  "overrides": {
+    "postcss": "^8.5.25",
+    "sharp": "^0.35.0"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}

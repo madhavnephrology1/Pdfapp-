@@ -1,0 +1,8 @@
+node_modules
+.next
+apps/web/public
+apps/api/.venv
+package-lock.json
+test-results
+playwright-report
+apps/web/next-env.d.ts

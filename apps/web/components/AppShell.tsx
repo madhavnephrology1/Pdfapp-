@@ -1,0 +1,224 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { savePosition } from '@/lib/persistence';
+import { useDocumentStore } from '@/stores/document-store';
+import { usePlaybackStore } from '@/stores/playback-store';
+import { ContentReviewPanel } from './ContentReviewPanel';
+import { LeftPanel } from './LeftPanel';
+import { PdfViewer } from './PdfViewer';
+import { PlayerBar } from './PlayerBar';
+import { ReaderPanel } from './ReaderPanel';
+import { SettingsPanel } from './SettingsPanel';
+import { UploadDropzone } from './UploadDropzone';
+import styles from './AppShell.module.css';
+
+export function AppShell() {
+  const {
+    status,
+    fileName,
+    error,
+    setError,
+    reset,
+    queue,
+    documentId,
+    fingerprint,
+    progress,
+    resumePrompt,
+    dismissResumePrompt,
+    cancelProcessing,
+  } = useDocumentStore();
+
+  const playback = usePlaybackStore();
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const positionSaveRef = useRef<number>(0);
+
+  useKeyboardShortcuts(status === 'ready' && !settingsOpen && !reviewOpen);
+
+  // Load the voice list once, so the player is usable as soon as text is ready.
+  useEffect(() => {
+    void playback.loadVoices();
+    return () => playback.teardown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rebuild the synthesis queue whenever the reading selection changes.
+  useEffect(() => {
+    if (status !== 'ready' || !playback.voicesLoaded) return;
+    playback.prepareQueue(queue, documentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, queue, documentId, playback.voicesLoaded, playback.voiceId]);
+
+  // Persist the reading position, at most once a second.
+  useEffect(() => {
+    if (!fingerprint || !playback.activeSentenceId) return;
+    const now = Date.now();
+    if (now - positionSaveRef.current < 1000) return;
+    positionSaveRef.current = now;
+    void savePosition({
+      fingerprint,
+      fileName,
+      lastOpenedAt: now,
+      lastPage: playback.activePage ?? 1,
+      lastSentenceId: playback.activeSentenceId,
+      lastWordIndex: playback.activeWordIndex,
+      lastAudioTimestamp: playback.audioTimestamp,
+    }).catch(() => {
+      // Storage failures are reported through the store, not thrown here.
+    });
+  }, [
+    fingerprint,
+    fileName,
+    playback.activeSentenceId,
+    playback.activePage,
+    playback.activeWordIndex,
+    playback.audioTimestamp,
+  ]);
+
+  // Warn before a refresh discards in-progress extraction.
+  useEffect(() => {
+    if (status !== 'processing') return;
+    const onBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [status]);
+
+  const resume = useCallback(() => {
+    if (resumePrompt?.lastSentenceId) void playback.seekToSentence(resumePrompt.lastSentenceId);
+    dismissResumePrompt();
+  }, [resumePrompt, playback, dismissResumePrompt]);
+
+  if (status === 'empty' || (status === 'error' && !fileName)) {
+    return (
+      <main className={styles.landing}>
+        {error && (
+          <div className={styles.errorBanner} role="alert">
+            <div>
+              <strong>{error.title}</strong>
+              <p>{error.message}</p>
+              <p className={styles.recovery}>{error.recovery}</p>
+            </div>
+            <button type="button" className="btn btn-sm" onClick={() => setError(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
+        <UploadDropzone />
+        <footer className={styles.landingFooter}>
+          <a href="/privacy">Privacy notice</a>
+        </footer>
+      </main>
+    );
+  }
+
+  return (
+    <div className={styles.shell}>
+      <a href="#reading-text" className="skip-link">
+        Skip to the reading text
+      </a>
+
+      <header className={styles.topBar}>
+        <button
+          type="button"
+          className={`btn btn-sm ${styles.navToggle}`}
+          onClick={() => setNavOpen((open) => !open)}
+          aria-expanded={navOpen}
+          aria-controls="document-nav"
+        >
+          {navOpen ? 'Hide' : 'Show'} navigation
+        </button>
+
+        <h1 className={styles.appTitle}>PDF Human Reader</h1>
+
+        <div className={styles.topActions}>
+          <button type="button" className="btn btn-sm" onClick={() => setReviewOpen(true)}>
+            Content review
+            {queue.excludedRegions.length > 0 && (
+              <span className={styles.countBadge}>{queue.excludedRegions.length}</span>
+            )}
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setSettingsOpen(true)}>
+            Settings
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              playback.teardown();
+              playback.stop();
+              reset();
+            }}
+          >
+            Close document
+          </button>
+        </div>
+      </header>
+
+      {status === 'processing' && (
+        <div className={styles.processing} role="status" aria-live="polite">
+          <span>
+            Processing {fileName} — {progress.phase}
+            {progress.pagesTotal > 0 &&
+              ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
+          </span>
+          <button type="button" className="btn btn-sm" onClick={cancelProcessing}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {status === 'error' && error && (
+        <div className={styles.errorBanner} role="alert">
+          <div>
+            <strong>{error.title}</strong>
+            <p>{error.message}</p>
+            <p className={styles.recovery}>{error.recovery}</p>
+          </div>
+          <button type="button" className="btn btn-sm" onClick={reset}>
+            Choose another file
+          </button>
+        </div>
+      )}
+
+      {resumePrompt && status === 'ready' && (
+        <div className={styles.resumeBanner} role="region" aria-label="Resume reading">
+          <span>
+            You were on page {resumePrompt.lastPage} of this document on{' '}
+            {new Date(resumePrompt.lastOpenedAt).toLocaleString()}.
+          </span>
+          <div className={styles.resumeActions}>
+            <button type="button" className="btn btn-sm btn-primary" onClick={resume}>
+              Resume reading
+            </button>
+            <button type="button" className="btn btn-sm" onClick={dismissResumePrompt}>
+              Start from the beginning
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={styles.columns}>
+        <div id="document-nav" className={`${styles.left} ${navOpen ? styles.leftOpen : ''}`}>
+          <LeftPanel onOpenReview={() => setReviewOpen(true)} />
+        </div>
+        <div className={styles.center}>
+          <PdfViewer />
+        </div>
+        <div className={styles.right}>
+          <ReaderPanel />
+        </div>
+      </div>
+
+      <PlayerBar />
+
+      {reviewOpen && <ContentReviewPanel onClose={() => setReviewOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+    </div>
+  );
+}

@@ -1,0 +1,41 @@
+.page {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+  line-height: 1.65;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 13.5px;
+  color: var(--accent);
+}
+
+.page h1 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.page h2 {
+  font-size: 17px;
+  margin: 32px 0 8px;
+}
+
+.lede {
+  color: var(--text-muted);
+  font-size: 15.5px;
+}
+
+.page ul {
+  padding-left: 22px;
+  margin: 8px 0;
+}
+
+.page li {
+  margin-bottom: 7px;
+}
+
+.page p {
+  margin: 8px 0;
+}

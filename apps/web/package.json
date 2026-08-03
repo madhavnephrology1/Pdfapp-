@@ -1,0 +1,46 @@
+{
+  "name": "@pdfreader/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --project integration",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "predev": "node ../../scripts/copy-pdf-assets.mjs",
+    "prebuild": "node ../../scripts/copy-pdf-assets.mjs"
+  },
+  "dependencies": {
+    "@pdfreader/shared-types": "*",
+    "@pdfreader/test-fixtures": "*",
+    "clsx": "^2.1.1",
+    "idb": "^8.0.1",
+    "next": "^16.2.12",
+    "pdfjs-dist": "^6.2.108",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^16.2.12",
+    "fake-indexeddb": "^6.0.1",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}
