@@ -11,6 +11,10 @@ import styles from './PdfViewer.module.css';
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 /** Pages this far outside the viewport are rendered ahead of time. */
 const RENDER_MARGIN = '600px';
+/** How long a smooth scroll is given to settle before the observer resumes. */
+const SCROLL_SETTLE_MS = 900;
+/** Share of a page that must be within the viewport for it to be "current". */
+const CURRENT_PAGE_RATIO = 0.5;
 
 export function PdfViewer() {
   const fileBytes = useDocumentStore((state) => state.fileBytes);
@@ -25,6 +29,12 @@ export function PdfViewer() {
   const [showSourceRegions, setShowSourceRegions] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * Set while a programmatic scroll is in flight. Several pages can be visible
+   * at once, so without this the intersection observer immediately overrides
+   * an explicit page navigation and the indicator snaps back.
+   */
+  const navigatingUntil = useRef(0);
 
   useEffect(() => {
     if (!fileBytes) return;
@@ -71,10 +81,19 @@ export function PdfViewer() {
 
   const goToPage = useCallback(
     (page: number) => {
+      navigatingUntil.current = Date.now() + SCROLL_SETTLE_MS;
       setCurrentPage(page);
       scrollRef.current
         ?.querySelector<HTMLElement>(`[data-page-container="${page}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [setCurrentPage],
+  );
+
+  const reportVisible = useCallback(
+    (page: number) => {
+      if (Date.now() < navigatingUntil.current) return;
+      setCurrentPage(page);
     },
     [setCurrentPage],
   );
@@ -181,21 +200,42 @@ function PdfPage({ doc, pageNumber, zoom, boxes, onVisible }: PdfPageProps) {
   const [visible, setVisible] = useState(false);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
+  // Rendering uses a generous margin so a page is painted before it scrolls
+  // into view.
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          setVisible(entry.isIntersecting);
-          if (entry.isIntersecting && entry.intersectionRatio > 0.5) onVisible();
-        }
+        for (const entry of entries) setVisible(entry.isIntersecting);
       },
-      { rootMargin: RENDER_MARGIN, threshold: [0, 0.5] },
+      { rootMargin: RENDER_MARGIN, threshold: 0 },
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [onVisible]);
+  }, []);
+
+  // "Which page am I on" is a SEPARATE question and must not use the render
+  // margin: that margin inflates the intersection root, so a page far below the
+  // viewport would otherwise report itself as more than half visible.
+  useEffect(() => {
+    const element = containerRef.current;
+    // Until a page has been measured it is only a small placeholder, and
+    // several placeholders can be more than half visible at once. Waiting for
+    // real dimensions stops an unrendered page far down the document from
+    // claiming to be the page the reader is on.
+    if (!element || !size) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= CURRENT_PAGE_RATIO) onVisible();
+        }
+      },
+      { threshold: [CURRENT_PAGE_RATIO] },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onVisible, size]);
 
   useEffect(() => {
     if (!visible) return;
