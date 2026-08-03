@@ -25,3 +25,4 @@ apps/web/public/pdf-standard-fonts/
 apps/web/public/pdf-cmaps/
 apps/web/tests/e2e/.generated/
 fixtures/
+*.egg-info/
