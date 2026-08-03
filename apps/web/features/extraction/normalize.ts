@@ -37,7 +37,6 @@ export const LIGATURES: Record<string, string> = {
 /** Characters that carry no spoken content and no layout meaning. */
 const INVISIBLE_CHARS = /[\u200B\u200C\u200D\uFEFF\u2060]/g;
 /** C0/C1 control characters except tab and newline. */
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
 /** Discretionary (soft) hyphen: an instruction to the renderer, not content. */
 const SOFT_HYPHEN = /\u00AD/g;

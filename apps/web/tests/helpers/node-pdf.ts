@@ -22,7 +22,6 @@ export async function loadPdfInNode(bytes: Uint8Array): Promise<LoadedPdf> {
   const task = pdfjs.getDocument({
     // PDF.js takes ownership of the buffer, so hand it a private copy.
     data: bytes.slice(),
-    isEvalSupported: false,
     useSystemFonts: false,
     disableFontFace: true,
     verbosity: 0,

@@ -1,0 +1,290 @@
+/*
+ * Design tokens and base styles.
+ *
+ * Colours are chosen to meet WCAG 2.2 AA contrast in both themes. Focus states
+ * are always visible and are never removed.
+ */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --surface-2: #eeeeec;
+  --border: #d6d5d0;
+  --border-strong: #b3b1aa;
+
+  --text: #1c1b19;
+  --text-muted: #56534d;
+  --text-faint: #74716a;
+
+  --accent: #1c4f8b;
+  --accent-contrast: #ffffff;
+  --accent-soft: #dce8f6;
+
+  --highlight-sentence: #fdf0c8;
+  --highlight-word: #f5c65c;
+  --highlight-source: rgba(28, 79, 139, 0.18);
+
+  --warn: #8a5a00;
+  --warn-soft: #fdf1d8;
+  --danger: #9b2226;
+  --danger-soft: #fbe4e4;
+  --ok: #2f6b3a;
+
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  --reader-font: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --ui-font:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --player-height: 84px;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #16171a;
+  --surface: #1e2024;
+  --surface-2: #26282d;
+  --border: #383b42;
+  --border-strong: #4d515a;
+
+  --text: #eceef1;
+  --text-muted: #b6bac1;
+  --text-faint: #9096a0;
+
+  --accent: #8ab4f8;
+  --accent-contrast: #10233d;
+  --accent-soft: #23324a;
+
+  --highlight-sentence: #3b3520;
+  --highlight-word: #8a7327;
+  --highlight-source: rgba(138, 180, 248, 0.22);
+
+  --warn: #e0b354;
+  --warn-soft: #332c17;
+  --danger: #f4a2a2;
+  --danger-soft: #3a2020;
+  --ok: #8bd39b;
+}
+
+[data-theme='sepia'] {
+  color-scheme: light;
+
+  --bg: #efe6d6;
+  --surface: #faf3e6;
+  --surface-2: #e8dcc6;
+  --border: #d3c4a7;
+  --border-strong: #b8a685;
+
+  --text: #33291b;
+  --text-muted: #5c4c34;
+  --text-faint: #77664b;
+
+  --accent: #7a4a19;
+  --accent-contrast: #fdf8ee;
+  --accent-soft: #e6d5b8;
+
+  --highlight-sentence: #f2dfae;
+  --highlight-word: #dbab53;
+  --highlight-source: rgba(122, 74, 25, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Focus is always visible; this rule is never overridden. */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Screen-reader-only text that stays focusable. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: 0 0 var(--radius) 0;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 0;
+  top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Shared primitives                                                  */
+/* ---------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--accent);
+}
+
+.btn-icon {
+  padding: 8px;
+  min-width: 38px;
+}
+
+.btn-sm {
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-included {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.badge-excluded {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.badge-uncertain {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.badge-estimated {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}

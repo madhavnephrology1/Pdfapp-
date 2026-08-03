@@ -120,8 +120,10 @@ export function buildSpeechProjection(
       sourceTextItemIds,
     });
     // Collapse the whitespace the removed marker leaves behind, so the provider
-    // does not hear a double space. This affects the spoken text only.
-    if (/\s$/.test(spoken) && /^\s/.test(displayText.slice(span.end))) {
+    // never receives a double space or a space before punctuation. This affects
+    // the spoken text only; the displayed sentence is untouched.
+    const remainder = displayText.slice(span.end);
+    if (/\s$/.test(spoken) && /^[\s.,;:!?)\]}]/.test(remainder)) {
       spoken = spoken.replace(/\s+$/, '');
     }
     cursor = span.end;

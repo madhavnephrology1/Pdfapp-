@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "development"
-    web_origin: str = "http://localhost:3000"
+    # Comma-separated. Both loopback spellings are allowed by default because a
+    # browser treats them as different origins and either may be used locally.
+    web_origin: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 

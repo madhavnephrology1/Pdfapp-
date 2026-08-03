@@ -73,7 +73,7 @@ export function groupBlocks(orderedLines: TextLine[], options: BlockOptions): La
   const blocks: LayoutBlock[] = [];
   let currentLines: TextLine[] = [];
   let currentEvidence: string[] = [];
-  let orderUncertain = false;
+  let orderUncertain: boolean = false;
 
   const flush = (): void => {
     if (currentLines.length === 0) return;
@@ -138,7 +138,7 @@ export function groupBlocks(orderedLines: TextLine[], options: BlockOptions): La
     }
 
     if (reasons.length > 0) {
-      const carried = orderUncertain;
+      const carried: boolean = orderUncertain;
       flush();
       currentEvidence = [`block started because: ${reasons.join('; ')}`];
       orderUncertain = carried;
