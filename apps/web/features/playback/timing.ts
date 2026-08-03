@@ -22,7 +22,11 @@ export function sentenceAtTime(
   chunk: TTSChunk,
   audioTime: number,
   durationSeconds: number,
-  sentenceTimings?: { sentenceId: string; audioStart: number; audioEnd: number }[],
+  sentenceTimings?: {
+    sentenceId: string;
+    audioStart: number;
+    audioEnd: number;
+  }[],
 ): string | null {
   if (chunk.sentenceOffsets.length === 0) return null;
 
@@ -68,13 +72,21 @@ export function wordProgress(params: {
   const words = splitWords(params.sentenceText);
   if (words.length === 0) return null;
 
-  if (params.timingSource === 'provider-exact' && params.wordTimings && params.wordTimings.length > 0) {
+  if (
+    params.timingSource === 'provider-exact' &&
+    params.wordTimings &&
+    params.wordTimings.length > 0
+  ) {
     let index = 0;
     for (let i = 0; i < params.wordTimings.length; i += 1) {
       if (params.elapsedInSentence >= params.wordTimings[i].audioStart) index = i;
       else break;
     }
-    return { wordIndex: Math.min(index, words.length - 1), source: 'provider-exact', estimated: false };
+    return {
+      wordIndex: Math.min(index, words.length - 1),
+      source: 'provider-exact',
+      estimated: false,
+    };
   }
 
   if (params.timingSource === 'browser-boundary' && params.browserCharIndex !== undefined) {
@@ -124,7 +136,9 @@ export function wordTimingsForSentence(
   const offset = chunk.sentenceOffsets.find((entry) => entry.sentenceId === sentenceId);
   if (!offset) return null;
 
-  const within = wordTimings.filter((timing) => timing.start >= offset.start && timing.end <= offset.end);
+  const within = wordTimings.filter(
+    (timing) => timing.start >= offset.start && timing.end <= offset.end,
+  );
   if (within.length === 0) return null;
   const base = within[0].audioStart;
   return within.map((timing) => ({

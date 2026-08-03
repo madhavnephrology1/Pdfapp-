@@ -75,7 +75,10 @@ function collectCandidates(pages: PageBlocks[]): RepeatedCandidate[] {
     const footerLimit = page.pageHeight * FOOTER_BAND;
     for (const block of page.blocks) {
       if (block.lines.length > MAX_LINES) continue;
-      const text = block.lines.map((line) => line.text).join(' ').trim();
+      const text = block.lines
+        .map((line) => line.text)
+        .join(' ')
+        .trim();
       if (text === '') continue;
       // A block set larger than the body is a heading, not a running head, even
       // if its normalized form repeats across pages.
@@ -132,7 +135,10 @@ export function detectRepeatedRegions(pages: PageBlocks[]): Map<string, Repeated
     groups.set(key, bucket);
   }
 
-  const requiredPages = Math.max(MIN_REPETITION_PAGES, Math.ceil(pages.length * MIN_REPETITION_SHARE));
+  const requiredPages = Math.max(
+    MIN_REPETITION_PAGES,
+    Math.ceil(pages.length * MIN_REPETITION_SHARE),
+  );
 
   for (const [, group] of groups) {
     const distinctPages = new Set(group.map((c) => c.pageNumber));
@@ -153,7 +159,10 @@ export function detectRepeatedRegions(pages: PageBlocks[]): Map<string, Repeated
 
     let confidence = 0.35;
     if (distinctPages.size >= requiredPages) confidence += 0.25;
-    else evidence.push(`below the ${requiredPages}-page repetition threshold, so confidence is reduced`);
+    else
+      evidence.push(
+        `below the ${requiredPages}-page repetition threshold, so confidence is reduced`,
+      );
     if (share >= 0.6) confidence += 0.15;
     if (spread <= POSITION_SPREAD_TIGHT) confidence += 0.2;
     else if (spread <= POSITION_SPREAD_LOOSE) confidence += 0.1;

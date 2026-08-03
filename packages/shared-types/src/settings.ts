@@ -29,19 +29,12 @@ export interface PlaybackSettings {
 }
 
 export interface TableSettings {
-  /** 'skip' is the default: a flattened table read as prose is meaningless. */
-  mode: 'skip' | 'row-by-row';
-}
-
-export interface EquationSettings {
-  mode: 'skip' | 'literal-source' | 'accessible-narration';
-}
-
-export interface ImageSettings {
-  readAltText: boolean;
-  readCaptions: boolean;
-  /** Generated descriptions are opt-in, always labelled, never in strict mode. */
-  allowGeneratedDescriptions: boolean;
+  /**
+   * 'skip' is the default, because a table read as a flat stream of numbers is
+   * meaningless. 'read-in-row-order' reads the table's own cell text, row by
+   * row, verbatim and with no generated labels.
+   */
+  mode: 'skip' | 'read-in-row-order';
 }
 
 export interface DocumentSettings {
@@ -51,12 +44,12 @@ export interface DocumentSettings {
   reader: ReaderSettings;
   playback: PlaybackSettings;
   tables: TableSettings;
-  equations: EquationSettings;
-  images: ImageSettings;
   /** Region id -> explicit user decision. Always wins over automatic rules. */
   regionOverrides: Record<string, 'include' | 'exclude'>;
-  /** User consented to sending page images to a third-party OCR provider. */
+  /**
+   * User consented to sending page images to a third-party OCR provider.
+   * The API enforces this flag; the browser has no OCR flow yet, so nothing
+   * sets it today. See LIMITATIONS.md.
+   */
   ocrConsent: boolean;
-  /** User consented to sending extracted text to a third-party TTS provider. */
-  ttsConsent: boolean;
 }

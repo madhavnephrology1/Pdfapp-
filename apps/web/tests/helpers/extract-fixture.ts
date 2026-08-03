@@ -6,7 +6,10 @@ import { loadPdfInNode } from './node-pdf';
  * Runs the real extraction pipeline over a fixture PDF using PDF.js in Node.
  * This is the same code path the browser worker uses.
  */
-export async function extractFixture(bytes: Uint8Array, documentId = 'doc'): Promise<ExtractionResult> {
+export async function extractFixture(
+  bytes: Uint8Array,
+  documentId = 'doc',
+): Promise<ExtractionResult> {
   const { doc, close } = await loadPdfInNode(bytes);
   try {
     const pageInputs: PageExtractionInput[] = [];

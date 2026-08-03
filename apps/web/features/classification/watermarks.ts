@@ -32,7 +32,10 @@ function isRotated(transform: number[]): boolean {
   return Math.max(Math.abs(b), Math.abs(c)) / scale > ROTATION_RATIO;
 }
 
-export function detectWatermarks(pages: PageBlocks[], bodyFontSize: number): Map<string, WatermarkFinding> {
+export function detectWatermarks(
+  pages: PageBlocks[],
+  bodyFontSize: number,
+): Map<string, WatermarkFinding> {
   const findings = new Map<string, WatermarkFinding>();
   if (pages.length === 0) return findings;
 

@@ -1,14 +1,7 @@
 import type { TimingSource } from './tts';
 
 export type PlaybackState =
-  | 'idle'
-  | 'preparing'
-  | 'buffering'
-  | 'playing'
-  | 'paused'
-  | 'seeking'
-  | 'stopped'
-  | 'error';
+  'idle' | 'preparing' | 'buffering' | 'playing' | 'paused' | 'seeking' | 'stopped' | 'error';
 
 export type ChunkStatus = 'queued' | 'generating' | 'ready' | 'failed' | 'cancelled';
 

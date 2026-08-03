@@ -27,7 +27,13 @@ export interface PageSpec {
   height?: number;
   runs: TextRun[];
   /** Draws a filled rectangle, used to emulate image-heavy / scanned pages. */
-  rects?: { x: number; y: number; width: number; height: number; gray?: number }[];
+  rects?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    gray?: number;
+  }[];
 }
 
 export interface PdfMeta {
@@ -43,7 +49,11 @@ const FONT_RESOURCES: Record<FixtureFont, string> = {
 };
 
 function escapePdfString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)').replace(/\r/g, '');
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/\r/g, '');
 }
 
 /**
@@ -129,7 +139,10 @@ export function buildPdf(pages: PageSpec[], meta: PdfMeta = {}): Uint8Array {
     pageIds.push(pageId);
   }
 
-  write(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`);
+  write(
+    pagesId,
+    `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`,
+  );
   write(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
 
   const infoId = reserve();

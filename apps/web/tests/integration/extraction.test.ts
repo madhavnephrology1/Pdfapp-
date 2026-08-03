@@ -16,7 +16,10 @@ import { DEFAULT_CATEGORY_SETTINGS } from '@/features/classification/modes';
 import type { ExtractionResult } from '@/features/extraction/pipeline';
 import { extractFixture, spokenText } from '../helpers/extract-fixture';
 
-const includedIds = (result: ExtractionResult, mode: 'clean' | 'strict-verbatim' | 'custom' = 'clean') =>
+const includedIds = (
+  result: ExtractionResult,
+  mode: 'clean' | 'strict-verbatim' | 'custom' = 'clean',
+) =>
   new Set(
     applyReadingMode(result.regions, mode, DEFAULT_CATEGORY_SETTINGS)
       .filter((region) => region.included)
@@ -66,7 +69,10 @@ describe('single-page extraction', () => {
   });
 
   it('only ever speaks text that exists in the source items', () => {
-    const source = result.rawItems.map((item) => item.text).join(' ').replace(/\s+/g, ' ');
+    const source = result.rawItems
+      .map((item) => item.text)
+      .join(' ')
+      .replace(/\s+/g, ' ');
     for (const sentence of result.sentences) {
       // Every word of every sentence must appear in the raw text layer.
       for (const word of sentence.text.split(/\s+/).filter(Boolean)) {
@@ -152,7 +158,9 @@ describe('two-column paper', () => {
 
   it('does not merge lines across the column gutter', () => {
     const text = result.regions.map((region) => region.text).join(' ');
-    expect(text).toContain('Sodium handling in the proximal tubule is mediated primarily by the sodium-hydrogen exchanger.');
+    expect(text).toContain(
+      'Sodium handling in the proximal tubule is mediated primarily by the sodium-hydrogen exchanger.',
+    );
     // The left column's first line must not run into the right column's.
     expect(text).not.toContain('primarily by Distal delivery');
     expect(text).not.toContain('exchanger. when proximal');

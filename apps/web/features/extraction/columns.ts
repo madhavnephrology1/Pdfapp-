@@ -196,7 +196,9 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
     // of the page; a gap between table cells has prose crossing it above and
     // below the table.
     const crossing = rows.filter((row) =>
-      row.some((item) => item.x < candidate.centre - 2 && item.x + item.width > candidate.centre + 2),
+      row.some(
+        (item) => item.x < candidate.centre - 2 && item.x + item.width > candidate.centre + 2,
+      ),
     ).length;
     const twoSided = rows.filter(
       (row) =>
@@ -233,7 +235,10 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
   }
 
   if (accepted.length === 0) {
-    return singleColumn(0.9, evidence.length > 0 ? evidence : ['no gutter wide enough to split the page']);
+    return singleColumn(
+      0.9,
+      evidence.length > 0 ? evidence : ['no gutter wide enough to split the page'],
+    );
   }
 
   accepted.sort((a, b) => a - b);

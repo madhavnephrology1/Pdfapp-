@@ -17,8 +17,15 @@ type Filter = 'all' | 'excluded' | 'uncertain' | 'included';
  * hidden: excluded regions appear here with their full text.
  */
 export function ContentReviewPanel({ onClose }: { onClose: () => void }) {
-  const { queue, settings, setRegionOverride, restoreAllExclusions, resetOverrides, setCategory, setCurrentPage } =
-    useDocumentStore();
+  const {
+    queue,
+    settings,
+    setRegionOverride,
+    restoreAllExclusions,
+    resetOverrides,
+    setCategory,
+    setCurrentPage,
+  } = useDocumentStore();
   const seekToSentence = usePlaybackStore((state) => state.seekToSentence);
   const sentences = useDocumentStore((state) => state.sentences);
 
@@ -53,9 +60,10 @@ export function ContentReviewPanel({ onClose }: { onClose: () => void }) {
           <div>
             <h2 className={styles.title}>Content review</h2>
             <p className={styles.subtitle}>
-              {summary.excludedRegions} region{summary.excludedRegions === 1 ? '' : 's'} (
-              {summary.excludedWords.toLocaleString()} words) are being skipped.{' '}
-              {queue.uncertainRegions.length} are uncertain but still being read.
+              {summary.excludedRegions} region
+              {summary.excludedRegions === 1 ? '' : 's'} ({summary.excludedWords.toLocaleString()}{' '}
+              words) are being skipped. {queue.uncertainRegions.length} are uncertain but still
+              being read.
             </p>
           </div>
           <button type="button" className="btn" onClick={onClose}>
@@ -120,9 +128,7 @@ export function ContentReviewPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <ul className={styles.list}>
-          {visible.length === 0 && (
-            <li className={styles.emptyState}>Nothing in this category.</li>
-          )}
+          {visible.length === 0 && <li className={styles.emptyState}>Nothing in this category.</li>}
           {visible.map((region) => (
             <RegionRow
               key={region.id}
@@ -153,7 +159,14 @@ interface RegionRowProps {
   onOpenPage: () => void;
 }
 
-function RegionRow({ region, uncertain, expanded, onToggleExpand, onOverride, onOpenPage }: RegionRowProps) {
+function RegionRow({
+  region,
+  uncertain,
+  expanded,
+  onToggleExpand,
+  onOverride,
+  onOpenPage,
+}: RegionRowProps) {
   const category = REGION_CATEGORY[region.type as RegionType];
   const words = region.text.trim() === '' ? 0 : region.text.trim().split(/\s+/).length;
 
@@ -163,13 +176,19 @@ function RegionRow({ region, uncertain, expanded, onToggleExpand, onOverride, on
         <div className={styles.rowMeta}>
           <span
             className={`badge ${
-              region.included ? (uncertain ? 'badge-uncertain' : 'badge-included') : 'badge-excluded'
+              region.included
+                ? uncertain
+                  ? 'badge-uncertain'
+                  : 'badge-included'
+                : 'badge-excluded'
             }`}
           >
             {region.included ? (uncertain ? 'Uncertain' : 'Read') : 'Skipped'}
           </span>
           <span className={styles.regionType}>{region.type}</span>
-          <span className={styles.confidence}>{Math.round(region.confidence * 100)}% confidence</span>
+          <span className={styles.confidence}>
+            {Math.round(region.confidence * 100)}% confidence
+          </span>
           <span className={styles.page}>page {region.pageNumber}</span>
           <span className={styles.words}>{words} words</span>
           {region.userOverride && <span className={styles.override}>your choice</span>}
@@ -187,7 +206,11 @@ function RegionRow({ region, uncertain, expanded, onToggleExpand, onOverride, on
               Skip this
             </button>
           ) : (
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => onOverride('include')}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => onOverride('include')}
+            >
               Read this
             </button>
           )}

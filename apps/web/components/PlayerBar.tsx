@@ -43,10 +43,7 @@ export function PlayerBar() {
   }, [playback.queueSentences, activeSentenceId]);
 
   const charactersRemaining = useMemo(
-    () =>
-      queue.entries
-        .slice(position)
-        .reduce((sum, entry) => sum + entry.speechText.length, 0),
+    () => queue.entries.slice(position).reduce((sum, entry) => sum + entry.speechText.length, 0),
     [queue.entries, position],
   );
 

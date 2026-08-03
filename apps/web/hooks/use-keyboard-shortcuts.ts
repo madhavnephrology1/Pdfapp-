@@ -47,7 +47,9 @@ export function useKeyboardShortcuts(enabled: boolean): void {
           FONT_SIZE_RANGE.max,
           Math.max(FONT_SIZE_RANGE.min, document.settings.reader.fontSizePx + delta),
         );
-        document.setSettings({ reader: { ...document.settings.reader, fontSizePx: next } });
+        document.setSettings({
+          reader: { ...document.settings.reader, fontSizePx: next },
+        });
         return;
       }
 
@@ -80,7 +82,8 @@ export function useKeyboardShortcuts(enabled: boolean): void {
         case '=': {
           event.preventDefault();
           const index = SPEED_OPTIONS.indexOf(playback.speed);
-          const next = SPEED_OPTIONS[Math.min(SPEED_OPTIONS.length - 1, index + 1)] ?? playback.speed;
+          const next =
+            SPEED_OPTIONS[Math.min(SPEED_OPTIONS.length - 1, index + 1)] ?? playback.speed;
           playback.setSpeed(next);
           break;
         }

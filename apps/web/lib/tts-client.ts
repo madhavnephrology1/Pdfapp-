@@ -1,4 +1,9 @@
-import type { NormalizedError, TTSCapabilities, TTSResult, TTSVoice } from '@pdfreader/shared-types';
+import type {
+  NormalizedError,
+  TTSCapabilities,
+  TTSResult,
+  TTSVoice,
+} from '@pdfreader/shared-types';
 
 /**
  * Client for the server speech API.
@@ -53,7 +58,13 @@ export async function fetchServerVoices(signal?: AbortSignal): Promise<ServerVoi
     if ((error as Error)?.name === 'AbortError') throw error;
     // The API being absent is a supported state, not a failure: the app falls
     // back to browser speech and says so.
-    return { configured: false, provider: null, voices: [], capabilities: null, defaultVoiceId: null };
+    return {
+      configured: false,
+      provider: null,
+      voices: [],
+      capabilities: null,
+      defaultVoiceId: null,
+    };
   }
 }
 
@@ -103,7 +114,9 @@ export async function synthesizeChunk(params: SynthesizeParams): Promise<TTSResu
 
 export async function clearServerAudioCache(): Promise<number> {
   try {
-    const response = await fetch(`${API_BASE}/api/tts/cache/clear`, { method: 'POST' });
+    const response = await fetch(`${API_BASE}/api/tts/cache/clear`, {
+      method: 'POST',
+    });
     if (!response.ok) return 0;
     return (await response.json()).cleared ?? 0;
   } catch {

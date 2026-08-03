@@ -66,7 +66,9 @@ export function UploadDropzone() {
           }}
         />
 
-        <p className={styles.limit}>PDF files up to {MAX_MB} MB. Nothing is uploaded automatically.</p>
+        <p className={styles.limit}>
+          PDF files up to {MAX_MB} MB. Nothing is uploaded automatically.
+        </p>
       </div>
 
       <ul className={styles.assurances}>

@@ -33,9 +33,18 @@ scope.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
   }
 });
 
-async function runExtraction(documentId: string, data: ArrayBuffer, password?: string): Promise<void> {
+async function runExtraction(
+  documentId: string,
+  data: ArrayBuffer,
+  password?: string,
+): Promise<void> {
   try {
-    post({ type: 'progress', phase: 'loading', pagesExtracted: 0, pagesTotal: 0 });
+    post({
+      type: 'progress',
+      phase: 'loading',
+      pagesExtracted: 0,
+      pagesTotal: 0,
+    });
 
     // Legacy build: see lib/pdf.ts for why.
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -43,7 +52,10 @@ async function runExtraction(documentId: string, data: ArrayBuffer, password?: s
     // Browsers that support nested workers give PDF.js its own thread; those
     // that do not fall back to a same-thread "fake worker", which is still off
     // the UI thread because we are already inside a worker.
-    pdfjs.GlobalWorkerOptions.workerSrc = new URL('/pdf.worker.min.mjs', scope.location.origin).href;
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      '/pdf.worker.min.mjs',
+      scope.location.origin,
+    ).href;
 
     const task = pdfjs.getDocument({
       data,
@@ -64,7 +76,12 @@ async function runExtraction(documentId: string, data: ArrayBuffer, password?: s
     }
 
     const pageCount = doc.numPages;
-    post({ type: 'progress', phase: 'extracting', pagesExtracted: 0, pagesTotal: pageCount });
+    post({
+      type: 'progress',
+      phase: 'extracting',
+      pagesExtracted: 0,
+      pagesTotal: pageCount,
+    });
 
     const pageInputs: PageExtractionInput[] = [];
 
@@ -118,11 +135,21 @@ async function runExtraction(documentId: string, data: ArrayBuffer, password?: s
     await task.destroy();
     if (cancelled) return;
 
-    post({ type: 'progress', phase: 'classifying', pagesExtracted: pageCount, pagesTotal: pageCount });
+    post({
+      type: 'progress',
+      phase: 'classifying',
+      pagesExtracted: pageCount,
+      pagesTotal: pageCount,
+    });
     const result = extractDocument(documentId, pageInputs);
 
     if (cancelled) return;
-    post({ type: 'progress', phase: 'segmenting', pagesExtracted: pageCount, pagesTotal: pageCount });
+    post({
+      type: 'progress',
+      phase: 'segmenting',
+      pagesExtracted: pageCount,
+      pagesTotal: pageCount,
+    });
 
     const done: DoneMessage = {
       type: 'done',
@@ -141,7 +168,12 @@ async function runExtraction(documentId: string, data: ArrayBuffer, password?: s
     post(done);
   } catch (error) {
     if (error instanceof PdfLoadError) {
-      post({ type: 'error', code: error.code, message: error.message, recovery: error.recovery });
+      post({
+        type: 'error',
+        code: error.code,
+        message: error.message,
+        recovery: error.recovery,
+      });
       return;
     }
     // The detail goes to the worker console for debugging; the user-facing

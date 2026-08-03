@@ -30,8 +30,9 @@ export default function PrivacyPage() {
           else, unless you explicitly turn on text recognition for scanned pages.
         </li>
         <li>
-          The file is <strong>not stored</strong> between sessions unless you opt in. By default only
-          a fingerprint, your reading position and your display settings are kept, in this browser.
+          The file is <strong>not stored</strong> between sessions unless you opt in. By default
+          only a fingerprint, your reading position and your display settings are kept, in this
+          browser.
         </li>
       </ul>
 

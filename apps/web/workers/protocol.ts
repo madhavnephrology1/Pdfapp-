@@ -49,7 +49,13 @@ export interface DoneMessage {
   rawItemCount: number;
   duplicatesRemoved: number;
   /** Region id -> rows, for tables offered as row-by-row reading. */
-  tableRows: [string, { lineId: string; cells: { text: string; x: number; itemIds: string[] }[] }[]][];
+  tableRows: [
+    string,
+    {
+      lineId: string;
+      cells: { text: string; x: number; itemIds: string[] }[];
+    }[],
+  ][];
   /** Kept so the reader can show raw extraction beside normalized text. */
   rawItems: RawTextItem[];
   bodyFontSize: number;

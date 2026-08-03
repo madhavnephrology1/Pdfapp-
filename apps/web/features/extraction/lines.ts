@@ -98,7 +98,8 @@ export function groupLines(
 function splitMarginBandRun(items: RawTextItem[], pageHeight: number): RawTextItem[][] {
   if (pageHeight <= 0 || items.length < 2) return [items];
   const baseline = items[0].y;
-  const inMargin = baseline <= pageHeight * MARGIN_BAND || baseline >= pageHeight * (1 - MARGIN_BAND);
+  const inMargin =
+    baseline <= pageHeight * MARGIN_BAND || baseline >= pageHeight * (1 - MARGIN_BAND);
   if (!inMargin) return [items];
 
   const sorted = [...items].sort((a, b) => a.x - b.x);
@@ -142,9 +143,7 @@ function buildLine(
     const normalized = normalizeItemText(item.text, item.id);
     const previous = ordered[position - 1];
     if (previous && text.length > 0) {
-      const gap = rtl
-        ? previous.x - (item.x + item.width)
-        : item.x - (previous.x + previous.width);
+      const gap = rtl ? previous.x - (item.x + item.width) : item.x - (previous.x + previous.width);
       const fontSize = item.fontSize || item.height || 10;
       const needsSpace =
         gap > fontSize * SPACE_GAP_RATIO && !/\s$/.test(text) && !/^\s/.test(normalized.text);
@@ -212,7 +211,9 @@ export function orderLines(lines: TextLine[], columnCount: number): TextLine[] {
   const emitBand = (upperY: number, lowerY: number): void => {
     const band = columnLines.filter((line) => line.baseline <= upperY && line.baseline > lowerY);
     band
-      .sort((a, b) => (a.columnIndex !== b.columnIndex ? a.columnIndex - b.columnIndex : byTop(a, b)))
+      .sort((a, b) =>
+        a.columnIndex !== b.columnIndex ? a.columnIndex - b.columnIndex : byTop(a, b),
+      )
       .forEach((line) => ordered.push(line));
   };
 

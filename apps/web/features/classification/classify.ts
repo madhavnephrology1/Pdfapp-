@@ -140,7 +140,9 @@ export function classifyDocument(input: ClassifyInput): DocumentRegion[] {
     proposals.sort((a, b) => b.confidence - a.confidence);
     const winner = moreSpecific ?? proposals[0];
     const evidence = proposals.flatMap((proposal) =>
-      proposal.evidence.map((line) => `[${proposal.source}, ${Math.round(proposal.confidence * 100)}%] ${line}`),
+      proposal.evidence.map(
+        (line) => `[${proposal.source}, ${Math.round(proposal.confidence * 100)}%] ${line}`,
+      ),
     );
 
     if (frontMatter.has(block.id)) {
@@ -165,7 +167,9 @@ export function classifyDocument(input: ClassifyInput): DocumentRegion[] {
       // Uses the same wrap/hyphen reconstruction as the spoken text, so what the
       // Content Review panel shows is exactly what would be read.
       text: regionText(block),
-      orderUncertain: block.orderUncertain || pages.find((p) => p.pageNumber === block.pageNumber)?.readingOrderUncertain,
+      orderUncertain:
+        block.orderUncertain ||
+        pages.find((p) => p.pageNumber === block.pageNumber)?.readingOrderUncertain,
     });
   }
 

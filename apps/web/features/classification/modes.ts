@@ -71,16 +71,25 @@ export function decideInclusion(
   categories: CategorySettings,
 ): InclusionDecision {
   if (region.userOverride === 'include') {
-    return { included: true, reason: 'You chose to include this region.', uncertain: false };
+    return {
+      included: true,
+      reason: 'You chose to include this region.',
+      uncertain: false,
+    };
   }
   if (region.userOverride === 'exclude') {
-    return { included: false, reason: 'You chose to exclude this region.', uncertain: false };
+    return {
+      included: false,
+      reason: 'You chose to exclude this region.',
+      uncertain: false,
+    };
   }
 
   if (mode === 'strict-verbatim') {
     return {
       included: true,
-      reason: 'Strict Verbatim Mode reads all extractable text, including headers, footers and references.',
+      reason:
+        'Strict Verbatim Mode reads all extractable text, including headers, footers and references.',
       uncertain: false,
     };
   }
@@ -90,7 +99,11 @@ export function decideInclusion(
 
   if (mode === 'custom') {
     if (!category) {
-      return { included: true, reason: 'Body content is always read in Custom Mode.', uncertain: false };
+      return {
+        included: true,
+        reason: 'Body content is always read in Custom Mode.',
+        uncertain: false,
+      };
     }
     const enabled = categories[category];
     return {
@@ -184,5 +197,11 @@ export function summarizeExclusions(regions: DocumentRegion[]): {
     }
   }
 
-  return { includedRegions, excludedRegions, includedWords, excludedWords, byType };
+  return {
+    includedRegions,
+    excludedRegions,
+    includedWords,
+    excludedWords,
+    byType,
+  };
 }

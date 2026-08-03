@@ -67,7 +67,9 @@ export interface BrowserSpeakOptions {
  * playback store, not by the browser's own queue, so that seeking and speed
  * changes stay under our control.
  */
-export function speakWithBrowser(options: BrowserSpeakOptions): { cancel: () => void } {
+export function speakWithBrowser(options: BrowserSpeakOptions): {
+  cancel: () => void;
+} {
   if (!isBrowserSpeechAvailable()) {
     options.onError?.('This browser has no built-in speech engine.');
     return { cancel: () => {} };

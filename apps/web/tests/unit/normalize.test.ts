@@ -9,14 +9,23 @@ describe('normalizeItemText', () => {
   it('expands ligatures to equivalent characters', () => {
     const result = normalizeItemText('Eﬃcient workﬂow', 'item-1');
     expect(result.text).toBe('Efficient workflow');
-    expect(result.transformations.map((t) => t.kind)).toEqual(['ligature-expand', 'ligature-expand']);
-    expect(result.transformations[0]).toMatchObject({ before: 'ﬃ', after: 'ffi' });
+    expect(result.transformations.map((t) => t.kind)).toEqual([
+      'ligature-expand',
+      'ligature-expand',
+    ]);
+    expect(result.transformations[0]).toMatchObject({
+      before: 'ﬃ',
+      after: 'ffi',
+    });
   });
 
   it('collapses runs of whitespace to a single space', () => {
     const result = normalizeItemText('a    b', 'item-1');
     expect(result.text).toBe('a b');
-    expect(result.transformations[0]).toMatchObject({ kind: 'whitespace-collapse', after: ' ' });
+    expect(result.transformations[0]).toMatchObject({
+      kind: 'whitespace-collapse',
+      after: ' ',
+    });
   });
 
   it('normalizes non-breaking spaces without recording a content change', () => {
@@ -79,17 +88,26 @@ describe('isWordSplittingHyphen', () => {
 });
 
 describe('joinWrappedLines', () => {
-  const line = (text: string, id: string) => ({ text, sourceTextItemIds: [id] });
+  const line = (text: string, id: string) => ({
+    text,
+    sourceTextItemIds: [id],
+  });
 
   it('reconstructs a hyphenated word without a space', () => {
-    const result = joinWrappedLines([line('The filtration bar-', 'a'), line('rier is selective.', 'b')]);
+    const result = joinWrappedLines([
+      line('The filtration bar-', 'a'),
+      line('rier is selective.', 'b'),
+    ]);
     expect(result.text).toBe('The filtration barrier is selective.');
     expect(result.transformations.map((t) => t.kind)).toEqual(['hyphen-join']);
     expect(result.transformations[0].sourceTextItemIds).toEqual(['a', 'b']);
   });
 
   it('joins ordinary wrapped lines with a single space', () => {
-    const result = joinWrappedLines([line('Tubular reabsorption recovers', 'a'), line('filtered sodium.', 'b')]);
+    const result = joinWrappedLines([
+      line('Tubular reabsorption recovers', 'a'),
+      line('filtered sodium.', 'b'),
+    ]);
     expect(result.text).toBe('Tubular reabsorption recovers filtered sodium.');
     expect(result.transformations.map((t) => t.kind)).toEqual(['line-wrap-join']);
   });

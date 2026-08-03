@@ -14,7 +14,11 @@ import {
   buildChunks,
   findChunkForSentence,
 } from '@/features/playback/chunking';
-import { initialPlaybackSnapshot, playbackReducer, type PlaybackEvent } from '@/features/playback/machine';
+import {
+  initialPlaybackSnapshot,
+  playbackReducer,
+  type PlaybackEvent,
+} from '@/features/playback/machine';
 import {
   estimateSentenceTimings,
   sentenceAtTime,
@@ -100,7 +104,10 @@ let inFlight = new Map<string, AbortController>();
 let audioUrlOrder: string[] = [];
 let rafId: number | null = null;
 /** Word timings for the chunk currently loaded into the audio element. */
-let activeChunkTimings: { timingSource: TimingSource; wordTimings?: TTSResultWordTiming[] } | null = null;
+let activeChunkTimings: {
+  timingSource: TimingSource;
+  wordTimings?: TTSResultWordTiming[];
+} | null = null;
 
 interface TTSResultWordTiming {
   start: number;
@@ -160,7 +167,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       chunkStates: {
         ...state.chunkStates,
         [chunkId]: {
-          ...(state.chunkStates[chunkId] ?? { chunkId, status: 'queued', attempts: 0 }),
+          ...(state.chunkStates[chunkId] ?? {
+            chunkId,
+            status: 'queued',
+            attempts: 0,
+          }),
           ...update,
         },
       },
@@ -291,7 +302,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
             timingSource: narrowed ? 'provider-exact' : 'estimated',
           });
           if (progress) {
-            dispatch({ type: 'WORD_BOUNDARY', wordIndex: progress.wordIndex, source: progress.source });
+            dispatch({
+              type: 'WORD_BOUNDARY',
+              wordIndex: progress.wordIndex,
+              source: progress.source,
+            });
           }
         }
       }
@@ -330,7 +345,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       onBoundary: (charIndex) => {
         const words = text.slice(0, charIndex).split(/\s+/).filter(Boolean).length;
         // Boundary events are real measurements, so this is exact, not estimated.
-        dispatch({ type: 'WORD_BOUNDARY', wordIndex: words, source: 'browser-boundary' });
+        dispatch({
+          type: 'WORD_BOUNDARY',
+          wordIndex: words,
+          source: 'browser-boundary',
+        });
       },
       onEnd: () => {
         const after = get();
@@ -380,7 +399,9 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
 
     await new Promise<void>((resolve) => {
       if (element.readyState >= 1) return resolve();
-      element.addEventListener('loadedmetadata', () => resolve(), { once: true });
+      element.addEventListener('loadedmetadata', () => resolve(), {
+        once: true,
+      });
     });
 
     // Start at this sentence's share of the chunk. With provider sentence
@@ -444,15 +465,19 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       ]);
 
       const options: VoiceOption[] = [
-        ...(server?.voices ?? []).map((voice) => ({ ...voice, source: 'server' as const })),
+        ...(server?.voices ?? []).map((voice) => ({
+          ...voice,
+          source: 'server' as const,
+        })),
         ...browser.map((voice) => ({ ...voice, source: 'browser' as const })),
       ];
 
       const preferred =
         server?.configured && server.defaultVoiceId
           ? options.find((voice) => voice.id === server.defaultVoiceId)
-          : options.find((voice) => voice.source === 'browser' && voice.language.startsWith('en')) ??
-            options[0];
+          : (options.find(
+              (voice) => voice.source === 'browser' && voice.language.startsWith('en'),
+            ) ?? options[0]);
 
       set({
         voices: options,
@@ -462,7 +487,9 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         serverSupportsWordTiming: Boolean(server?.capabilities?.supportsWordTiming),
         maxCharsPerChunk: server?.capabilities?.maxCharsPerChunk ?? 2500,
         voiceId: get().voiceId ?? preferred?.id ?? null,
-        providerName: get().providerName ?? (preferred?.source === 'server' ? server?.provider ?? null : BROWSER_PROVIDER),
+        providerName:
+          get().providerName ??
+          (preferred?.source === 'server' ? (server?.provider ?? null) : BROWSER_PROVIDER),
         wordTimingSource: server?.capabilities?.supportsWordTiming ? 'provider-exact' : 'estimated',
       });
     },
@@ -475,7 +502,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
 
       const state = get();
       const voice = state.voices.find((candidate) => candidate.id === state.voiceId);
-      const provider = voice?.source === 'server' ? state.serverProviderName ?? 'server' : BROWSER_PROVIDER;
+      const provider =
+        voice?.source === 'server' ? (state.serverProviderName ?? 'server') : BROWSER_PROVIDER;
 
       const chunks = buildChunks(queue.entries, {
         maxChars: provider === BROWSER_PROVIDER ? 4000 : state.maxCharsPerChunk,
@@ -654,7 +682,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       const voice = state.voices.find((candidate) => candidate.id === voiceId);
       if (!voice) return;
 
-      const provider = voice.source === 'server' ? state.serverProviderName ?? 'server' : BROWSER_PROVIDER;
+      const provider =
+        voice.source === 'server' ? (state.serverProviderName ?? 'server') : BROWSER_PROVIDER;
       const wasPlaying = state.state === 'playing';
       const keepSentence = state.activeSentenceId;
 
@@ -702,7 +731,10 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
 });
 
 /** Per-chunk timing metadata, kept out of React state because it is large. */
-const chunkTimings = new Map<string, { timingSource: TimingSource; wordTimings?: TTSResultWordTiming[] }>();
+const chunkTimings = new Map<
+  string,
+  { timingSource: TimingSource; wordTimings?: TTSResultWordTiming[] }
+>();
 
 export const getChunkTimingSource = (chunkId: string | null): TimingSource =>
   (chunkId ? chunkTimings.get(chunkId)?.timingSource : undefined) ?? 'none';

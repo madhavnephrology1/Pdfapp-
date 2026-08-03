@@ -129,8 +129,8 @@ function Paragraph({
     >
       {!paragraph.included && (
         <p className={styles.blockNotice}>
-          <span className="badge badge-excluded">Not read</span> Classified as {paragraph.regionType}.
-          Shown here so nothing is hidden from you.
+          <span className="badge badge-excluded">Not read</span> Classified as{' '}
+          {paragraph.regionType}. Shown here so nothing is hidden from you.
         </p>
       )}
       {paragraph.uncertain && paragraph.included && (
@@ -303,7 +303,12 @@ function buildSegments(
       segments.push({ text: chunk, skipped: false, wordOffset });
       wordOffset += splitWords(chunk).length;
     }
-    segments.push({ text: text.slice(span.start, span.end), skipped: true, reason: span.reason, wordOffset });
+    segments.push({
+      text: text.slice(span.start, span.end),
+      skipped: true,
+      reason: span.reason,
+      wordOffset,
+    });
     cursor = span.end;
   }
   if (cursor < text.length) {

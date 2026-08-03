@@ -69,7 +69,10 @@ function previousWord(text: string, index: number): string {
   while (end > 0 && /[\s]/.test(text[end - 1])) end -= 1;
   let start = end;
   while (start > 0 && /[^\s]/.test(text[start - 1])) start -= 1;
-  return text.slice(start, end).toLowerCase().replace(/[^a-z.]/g, '');
+  return text
+    .slice(start, end)
+    .toLowerCase()
+    .replace(/[^a-z.]/g, '');
 }
 
 /**
@@ -143,7 +146,11 @@ export function splitWords(text: string): { start: number; end: number; text: st
   const regex = /\S+/g;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
-    words.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
+    words.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      text: match[0],
+    });
   }
   return words;
 }

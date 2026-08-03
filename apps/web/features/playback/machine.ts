@@ -16,11 +16,23 @@ export type PlaybackEvent =
   | { type: 'PAUSE' }
   | { type: 'STOP' }
   | { type: 'BUFFER' }
-  | { type: 'SEEK_SENTENCE'; sentenceId: string; paragraphId: string; regionId: string; page: number }
+  | {
+      type: 'SEEK_SENTENCE';
+      sentenceId: string;
+      paragraphId: string;
+      regionId: string;
+      page: number;
+    }
   | { type: 'SEEK_TIME'; audioTimestamp: number }
   | { type: 'SEEK_COMMITTED' }
   | { type: 'TICK'; audioTimestamp: number }
-  | { type: 'SENTENCE_ADVANCED'; sentenceId: string; paragraphId: string; regionId: string; page: number }
+  | {
+      type: 'SENTENCE_ADVANCED';
+      sentenceId: string;
+      paragraphId: string;
+      regionId: string;
+      page: number;
+    }
   | { type: 'WORD_BOUNDARY'; wordIndex: number; source: TimingSource }
   | { type: 'CHUNK_ACTIVE'; chunkId: string }
   | { type: 'SET_SPEED'; speed: number }
@@ -53,10 +65,19 @@ const RESUMABLE: PlaybackState[] = ['playing', 'buffering', 'seeking'];
 export function playbackReducer(state: PlaybackSnapshot, event: PlaybackEvent): PlaybackSnapshot {
   switch (event.type) {
     case 'PREPARE':
-      return { ...state, state: 'preparing', voiceId: event.voiceId, providerName: event.provider, error: null };
+      return {
+        ...state,
+        state: 'preparing',
+        voiceId: event.voiceId,
+        providerName: event.provider,
+        error: null,
+      };
 
     case 'READY':
-      return { ...state, state: state.state === 'preparing' ? 'paused' : state.state };
+      return {
+        ...state,
+        state: state.state === 'preparing' ? 'paused' : state.state,
+      };
 
     case 'PLAY':
       if (state.state === 'error') return state;
@@ -95,10 +116,17 @@ export function playbackReducer(state: PlaybackSnapshot, event: PlaybackEvent): 
       };
 
     case 'SEEK_TIME':
-      return { ...state, state: 'seeking', audioTimestamp: Math.max(0, event.audioTimestamp) };
+      return {
+        ...state,
+        state: 'seeking',
+        audioTimestamp: Math.max(0, event.audioTimestamp),
+      };
 
     case 'SEEK_COMMITTED':
-      return { ...state, state: state.state === 'seeking' ? 'playing' : state.state };
+      return {
+        ...state,
+        state: state.state === 'seeking' ? 'playing' : state.state,
+      };
 
     case 'TICK':
       return state.state === 'playing' || state.state === 'buffering'
@@ -116,7 +144,11 @@ export function playbackReducer(state: PlaybackSnapshot, event: PlaybackEvent): 
       };
 
     case 'WORD_BOUNDARY':
-      return { ...state, activeWordIndex: event.wordIndex, wordTimingSource: event.source };
+      return {
+        ...state,
+        activeWordIndex: event.wordIndex,
+        wordTimingSource: event.source,
+      };
 
     case 'CHUNK_ACTIVE':
       return { ...state, activeChunkId: event.chunkId };
@@ -146,7 +178,11 @@ export function playbackReducer(state: PlaybackSnapshot, event: PlaybackEvent): 
       return { ...state, state: 'error', error: event.message };
 
     case 'CLEAR_ERROR':
-      return { ...state, state: state.state === 'error' ? 'paused' : state.state, error: null };
+      return {
+        ...state,
+        state: state.state === 'error' ? 'paused' : state.state,
+        error: null,
+      };
 
     default:
       return state;
@@ -166,4 +202,5 @@ export const isBusy = (state: PlaybackState): boolean =>
   state === 'preparing' || state === 'buffering' || state === 'seeking';
 
 /** True when the play control should show a pause icon. */
-export const isPlaying = (state: PlaybackState): boolean => state === 'playing' || state === 'buffering';
+export const isPlaying = (state: PlaybackState): boolean =>
+  state === 'playing' || state === 'buffering';

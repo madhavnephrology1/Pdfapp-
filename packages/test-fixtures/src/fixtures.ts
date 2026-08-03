@@ -21,7 +21,13 @@ function flow(lines: string[], column: ColumnFlow): { runs: TextRun[]; nextY: nu
   let y = column.top;
   for (const line of lines) {
     if (line !== '') {
-      runs.push({ x: column.x, y, text: line, size: column.size ?? BODY_SIZE, font: column.font });
+      runs.push({
+        x: column.x,
+        y,
+        text: line,
+        size: column.size ?? BODY_SIZE,
+        font: column.font,
+      });
     }
     y -= lineHeight;
   }
@@ -58,7 +64,13 @@ export const SINGLE_PAGE_BODY_LINES = [
 
 export function singlePagePdf(): Uint8Array {
   const [title, , ...body] = SINGLE_PAGE_BODY_LINES;
-  const heading: TextRun = { x: MARGIN, y: PAGE_HEIGHT - MARGIN, text: title, size: 15, font: 'F2' };
+  const heading: TextRun = {
+    x: MARGIN,
+    y: PAGE_HEIGHT - MARGIN,
+    text: title,
+    size: 15,
+    font: 'F2',
+  };
   const { runs } = flow(body, { x: MARGIN, top: PAGE_HEIGHT - MARGIN - 30 });
   return buildPdf([{ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs: [heading, ...runs] }], {
     title: 'Renal Physiology Overview',
@@ -141,11 +153,20 @@ export function twoColumnPaperPdf(): Uint8Array {
     font: 'F2',
   };
 
-  const left = flow(TWO_COLUMN_LEFT_LINES, { x: COLUMN_LEFT_X, top: PAGE_HEIGHT - MARGIN - 34 });
-  const right = flow(TWO_COLUMN_RIGHT_LINES, { x: COLUMN_RIGHT_X, top: PAGE_HEIGHT - MARGIN - 34 });
+  const left = flow(TWO_COLUMN_LEFT_LINES, {
+    x: COLUMN_LEFT_X,
+    top: PAGE_HEIGHT - MARGIN - 34,
+  });
+  const right = flow(TWO_COLUMN_RIGHT_LINES, {
+    x: COLUMN_RIGHT_X,
+    top: PAGE_HEIGHT - MARGIN - 34,
+  });
 
   const footnotes = flow(
-    ['1. Corresponding author. Department of Nephrology.', '2. Funding provided by an institutional grant.'],
+    [
+      '1. Corresponding author. Department of Nephrology.',
+      '2. Funding provided by an institutional grant.',
+    ],
     { x: COLUMN_LEFT_X, top: 120, size: 7, lineHeight: 10 },
   );
 
@@ -180,7 +201,12 @@ export function twoColumnPaperPdf(): Uint8Array {
     'Delgado, A. (2018). Medullary osmotic gradients. American Journal of',
     '    Physiology, 314(2), F220-F231.',
   ];
-  const refs = flow(referenceLines, { x: COLUMN_LEFT_X, top: PAGE_HEIGHT - MARGIN - 48, size: 9, lineHeight: 12 });
+  const refs = flow(referenceLines, {
+    x: COLUMN_LEFT_X,
+    top: PAGE_HEIGHT - MARGIN - 48,
+    size: 9,
+    lineHeight: 12,
+  });
 
   const page2: PageSpec = {
     width: PAGE_WIDTH,
@@ -194,7 +220,9 @@ export function twoColumnPaperPdf(): Uint8Array {
     ],
   };
 
-  return buildPdf([page1, page2], { title: 'Tubular Sodium Transport and Feedback Regulation' });
+  return buildPdf([page1, page2], {
+    title: 'Tubular Sodium Transport and Feedback Regulation',
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -203,13 +231,35 @@ export function twoColumnPaperPdf(): Uint8Array {
 
 export function typographyPdf(): Uint8Array {
   const runs: TextRun[] = [
-    { x: MARGIN, y: 700, text: 'The glomerular filtration bar-', size: BODY_SIZE },
-    { x: MARGIN, y: 686, text: 'rier restricts albumin passage.', size: BODY_SIZE },
-    { x: MARGIN, y: 660, text: 'Efficient workflow benefits.', size: BODY_SIZE },
+    {
+      x: MARGIN,
+      y: 700,
+      text: 'The glomerular filtration bar-',
+      size: BODY_SIZE,
+    },
+    {
+      x: MARGIN,
+      y: 686,
+      text: 'rier restricts albumin passage.',
+      size: BODY_SIZE,
+    },
+    {
+      x: MARGIN,
+      y: 660,
+      text: 'Efficient workflow benefits.',
+      size: BODY_SIZE,
+    },
     // Duplicated overlapping text layer (simulates a fake-bold double draw).
-    { x: MARGIN + 0.3, y: 660, text: 'Efficient workflow benefits.', size: BODY_SIZE },
+    {
+      x: MARGIN + 0.3,
+      y: 660,
+      text: 'Efficient workflow benefits.',
+      size: BODY_SIZE,
+    },
   ];
-  return buildPdf([{ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs }], { title: 'Typography Fixture' });
+  return buildPdf([{ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs }], {
+    title: 'Typography Fixture',
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -218,8 +268,19 @@ export function typographyPdf(): Uint8Array {
 
 export function tablePdf(): Uint8Array {
   const runs: TextRun[] = [
-    { x: MARGIN, y: 720, text: 'Baseline characteristics are summarized below.', size: BODY_SIZE },
-    { x: MARGIN, y: 690, text: 'Table 1. Baseline characteristics of the study cohort.', size: 9, font: 'F2' },
+    {
+      x: MARGIN,
+      y: 720,
+      text: 'Baseline characteristics are summarized below.',
+      size: BODY_SIZE,
+    },
+    {
+      x: MARGIN,
+      y: 690,
+      text: 'Table 1. Baseline characteristics of the study cohort.',
+      size: 9,
+      font: 'F2',
+    },
   ];
   const columns = [MARGIN, 200, 320, 440];
   const rows = [
@@ -230,11 +291,23 @@ export function tablePdf(): Uint8Array {
   ];
   rows.forEach((row, rowIndex) => {
     row.forEach((cell, colIndex) => {
-      runs.push({ x: columns[colIndex], y: 668 - rowIndex * 16, text: cell, size: 9 });
+      runs.push({
+        x: columns[colIndex],
+        y: 668 - rowIndex * 16,
+        text: cell,
+        size: 9,
+      });
     });
   });
-  runs.push({ x: MARGIN, y: 580, text: 'The groups were well matched at baseline.', size: BODY_SIZE });
-  return buildPdf([{ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs }], { title: 'Table Fixture' });
+  runs.push({
+    x: MARGIN,
+    y: 580,
+    text: 'The groups were well matched at baseline.',
+    size: BODY_SIZE,
+  });
+  return buildPdf([{ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs }], {
+    title: 'Table Fixture',
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -248,7 +321,15 @@ export function scannedPdf(): Uint8Array {
         width: PAGE_WIDTH,
         height: PAGE_HEIGHT,
         runs: [],
-        rects: [{ x: 40, y: 40, width: PAGE_WIDTH - 80, height: PAGE_HEIGHT - 80, gray: 0.85 }],
+        rects: [
+          {
+            x: 40,
+            y: 40,
+            width: PAGE_WIDTH - 80,
+            height: PAGE_HEIGHT - 80,
+            gray: 0.85,
+          },
+        ],
       },
     ],
     { title: 'Scanned Fixture' },
@@ -256,7 +337,10 @@ export function scannedPdf(): Uint8Array {
 }
 
 export function mixedScannedPdf(): Uint8Array {
-  const digital = flow(SINGLE_PAGE_BODY_LINES, { x: MARGIN, top: PAGE_HEIGHT - MARGIN });
+  const digital = flow(SINGLE_PAGE_BODY_LINES, {
+    x: MARGIN,
+    top: PAGE_HEIGHT - MARGIN,
+  });
   return buildPdf(
     [
       { width: PAGE_WIDTH, height: PAGE_HEIGHT, runs: digital.runs },
@@ -264,7 +348,15 @@ export function mixedScannedPdf(): Uint8Array {
         width: PAGE_WIDTH,
         height: PAGE_HEIGHT,
         runs: [],
-        rects: [{ x: 40, y: 40, width: PAGE_WIDTH - 80, height: PAGE_HEIGHT - 80, gray: 0.85 }],
+        rects: [
+          {
+            x: 40,
+            y: 40,
+            width: PAGE_WIDTH - 80,
+            height: PAGE_HEIGHT - 80,
+            gray: 0.85,
+          },
+        ],
       },
     ],
     { title: 'Mixed Fixture' },
@@ -289,10 +381,17 @@ export function frontMatterPdf(): Uint8Array {
     const { runs } = flow(
       index === 0
         ? ['This volume collects lectures delivered between 2018 and 2022.']
-        : [`Chapter ${index}. Fluid and Electrolyte Balance`, `Chapter ${index + 1}. Acid Base Disorders`],
+        : [
+            `Chapter ${index}. Fluid and Electrolyte Balance`,
+            `Chapter ${index + 1}. Acid Base Disorders`,
+          ],
       { x: MARGIN, top: PAGE_HEIGHT - MARGIN - 30 },
     );
-    pages.push({ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs: [title, ...runs, pageNumber(roman)] });
+    pages.push({
+      width: PAGE_WIDTH,
+      height: PAGE_HEIGHT,
+      runs: [title, ...runs, pageNumber(roman)],
+    });
   });
   const chapterTitle: TextRun = {
     x: MARGIN,
@@ -305,7 +404,11 @@ export function frontMatterPdf(): Uint8Array {
     x: MARGIN,
     top: PAGE_HEIGHT - MARGIN - 30,
   });
-  pages.push({ width: PAGE_WIDTH, height: PAGE_HEIGHT, runs: [chapterTitle, ...body.runs, pageNumber(1)] });
+  pages.push({
+    width: PAGE_WIDTH,
+    height: PAGE_HEIGHT,
+    runs: [chapterTitle, ...body.runs, pageNumber(1)],
+  });
   return buildPdf(pages, { title: 'Lectures in Nephrology' });
 }
 

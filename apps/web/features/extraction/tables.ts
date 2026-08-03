@@ -40,7 +40,11 @@ export function splitLineIntoCells(line: TextLine): TableCell[] | null {
     const previous = glyphItems[index - 1];
     const gap = previous ? item.x - (previous.x + previous.width) : 0;
     if (previous && gap > threshold) {
-      cells.push({ text: currentText.trim(), x: currentX, itemIds: currentIds });
+      cells.push({
+        text: currentText.trim(),
+        x: currentX,
+        itemIds: currentIds,
+      });
       currentText = '';
       currentX = item.x;
       currentIds = [];
@@ -61,7 +65,10 @@ export function splitLineIntoCells(line: TextLine): TableCell[] | null {
  * of words produces meaningless narration. The default behaviour is to skip
  * them and offer structured row-by-row reading instead.
  */
-export function detectTables(blocks: LayoutBlock[]): { blocks: LayoutBlock[]; rowsByBlock: Map<string, TableRow[]> } {
+export function detectTables(blocks: LayoutBlock[]): {
+  blocks: LayoutBlock[];
+  rowsByBlock: Map<string, TableRow[]>;
+} {
   const rowsByBlock = new Map<string, TableRow[]>();
   const output: LayoutBlock[] = [];
 
@@ -71,7 +78,10 @@ export function detectTables(blocks: LayoutBlock[]): { blocks: LayoutBlock[]; ro
       continue;
     }
 
-    const candidates = block.lines.map((line) => ({ line, cells: splitLineIntoCells(line) }));
+    const candidates = block.lines.map((line) => ({
+      line,
+      cells: splitLineIntoCells(line),
+    }));
     const rowLines = candidates.filter((candidate) => candidate.cells !== null);
     if (rowLines.length < MIN_ROWS) {
       output.push(block);
@@ -109,7 +119,8 @@ export function detectTables(blocks: LayoutBlock[]): { blocks: LayoutBlock[]; ro
       x: Math.min(...lines.map((line) => line.x)),
       y: Math.min(...lines.map((line) => line.baseline)),
       width:
-        Math.max(...lines.map((line) => line.x + line.width)) - Math.min(...lines.map((line) => line.x)),
+        Math.max(...lines.map((line) => line.x + line.width)) -
+        Math.min(...lines.map((line) => line.x)),
       height:
         Math.max(...lines.map((line) => line.baseline + line.height)) -
         Math.min(...lines.map((line) => line.baseline)),
@@ -117,13 +128,21 @@ export function detectTables(blocks: LayoutBlock[]): { blocks: LayoutBlock[]; ro
     });
 
     if (before.length > 0) {
-      output.push({ ...block, id: `${block.id}:pre`, lines: before, boundingBox: boundsOf(before) });
+      output.push({
+        ...block,
+        id: `${block.id}:pre`,
+        lines: before,
+        boundingBox: boundsOf(before),
+      });
     }
 
     const tableId = before.length > 0 || after.length > 0 ? `${block.id}:table` : block.id;
     rowsByBlock.set(
       tableId,
-      rowLines.map((candidate) => ({ lineId: candidate.line.id, cells: candidate.cells! })),
+      rowLines.map((candidate) => ({
+        lineId: candidate.line.id,
+        cells: candidate.cells!,
+      })),
     );
     output.push({
       ...block,
@@ -140,50 +159,14 @@ export function detectTables(blocks: LayoutBlock[]): { blocks: LayoutBlock[]; ro
     });
 
     if (after.length > 0) {
-      output.push({ ...block, id: `${block.id}:post`, lines: after, boundingBox: boundsOf(after) });
+      output.push({
+        ...block,
+        id: `${block.id}:post`,
+        lines: after,
+        boundingBox: boundsOf(after),
+      });
     }
   }
 
   return { blocks: output, rowsByBlock };
-}
-
-/** One utterance of row-by-row table narration. */
-export interface TableUtterance {
-  text: string;
-  /**
-   * TRUE when the text is navigational scaffolding this application generated
-   * ("Row 2.", "Column headings:") rather than text present in the PDF.
-   *
-   * Callers MUST surface this to the user and MUST NOT emit generated
-   * utterances in Strict Verbatim Mode. Cell contents themselves are always
-   * verbatim; only the connective wording is generated.
-   */
-  generated: boolean;
-}
-
-/**
- * Renders a detected table row by row for accessible reading.
- *
- * This is an ACCESSIBILITY TRANSFORMATION, not verbatim reading: the row and
- * column labels are generated. It is offered because reading a table as a flat
- * stream of numbers is meaningless, but it is opt-in and always labelled.
- * Every cell's text is reproduced exactly as extracted.
- */
-export function tableRowsToSpeech(rows: TableRow[]): TableUtterance[] {
-  if (rows.length === 0) return [];
-  const [headerRow, ...bodyRows] = rows;
-  const headers = headerRow.cells.map((cell) => cell.text);
-  const output: TableUtterance[] = [
-    { text: `Table with ${rows.length} rows. Column headings:`, generated: true },
-    { text: headers.join(', '), generated: false },
-  ];
-  bodyRows.forEach((row, index) => {
-    output.push({ text: `Row ${index + 1}.`, generated: true });
-    row.cells.forEach((cell, cellIndex) => {
-      const header = headers[cellIndex];
-      if (header) output.push({ text: `${header}:`, generated: true });
-      output.push({ text: cell.text, generated: false });
-    });
-  });
-  return output;
 }

@@ -1,4 +1,9 @@
-import type { BoundingBox, RawTextItem, RegionType, TransformationRecord } from '@pdfreader/shared-types';
+import type {
+  BoundingBox,
+  RawTextItem,
+  RegionType,
+  TransformationRecord,
+} from '@pdfreader/shared-types';
 
 /** A run of items sharing a baseline within one column. */
 export interface TextLine {

@@ -48,7 +48,10 @@ function getStoredTheme(): ReaderTheme {
 /** The server has no preference to read, so it renders the default. */
 const getServerTheme = (): ReaderTheme => 'system';
 
-export function useTheme(): { theme: ReaderTheme; setTheme: (theme: ReaderTheme) => void } {
+export function useTheme(): {
+  theme: ReaderTheme;
+  setTheme: (theme: ReaderTheme) => void;
+} {
   const theme = useSyncExternalStore(subscribeTheme, getStoredTheme, getServerTheme);
 
   const setTheme = useCallback((next: ReaderTheme) => {

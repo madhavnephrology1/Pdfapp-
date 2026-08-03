@@ -76,7 +76,12 @@ export function buildSpeechProjection(
     regex.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(displayText)) !== null) {
-      candidates.push({ start: match.index, end: match.index + match[0].length, text: match[0], reason });
+      candidates.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+        reason,
+      });
       if (match[0].length === 0) regex.lastIndex += 1;
     }
   };

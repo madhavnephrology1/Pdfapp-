@@ -46,7 +46,9 @@ describe('fixture PDF writer', () => {
     const { doc, close } = await loadPdfInNode(twoColumnPaperPdf());
     const page = await doc.getPage(1);
     const content = await page.getTextContent();
-    const xs = new Set(content.items.filter((i) => 'str' in i).map((i) => Math.round(i.transform[4])));
+    const xs = new Set(
+      content.items.filter((i) => 'str' in i).map((i) => Math.round(i.transform[4])),
+    );
     expect(xs.has(54)).toBe(true);
     expect(xs.has(320)).toBe(true);
     await close();

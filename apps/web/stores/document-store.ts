@@ -15,12 +15,7 @@ import { buildReadingQueue, type ReadingQueue } from '@/features/reader/queue';
 import { DEFAULT_SETTINGS, mergeSettings } from '@/features/settings/defaults';
 import { documentIdFor, fingerprintFile } from '@/lib/fingerprint';
 import { isPdfFile } from '@/lib/pdf';
-import {
-  loadPosition,
-  loadSettings,
-  saveSettings,
-  type StorageFullError,
-} from '@/lib/persistence';
+import { loadPosition, loadSettings, saveSettings, type StorageFullError } from '@/lib/persistence';
 import type { WorkerRequest, WorkerResponse } from '@/workers/protocol';
 
 export interface AppError {
@@ -233,7 +228,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         case 'error':
           set({
             status: 'error',
-            passwordRequired: message.code === 'password-required' || message.code === 'wrong-password',
+            passwordRequired:
+              message.code === 'password-required' || message.code === 'wrong-password',
             error: {
               title:
                 message.code === 'password-required'
@@ -342,12 +338,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   setCategory(category, enabled) {
-    get().setSettings({ categories: { ...get().settings.categories, [category]: enabled } });
+    get().setSettings({
+      categories: { ...get().settings.categories, [category]: enabled },
+    });
   },
 
   setCurrentPage(page) {
     const { pages } = get();
-    set({ currentPage: Math.min(Math.max(1, page), Math.max(1, pages.length)) });
+    set({
+      currentPage: Math.min(Math.max(1, page), Math.max(1, pages.length)),
+    });
   },
 
   dismissResumePrompt() {

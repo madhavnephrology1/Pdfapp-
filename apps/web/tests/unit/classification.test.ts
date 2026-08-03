@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIDENCE_THRESHOLDS, type DocumentRegion } from '@pdfreader/shared-types';
-import { buildSpeechProjection, DEFAULT_CITATION_SETTINGS } from '@/features/classification/citations';
+import {
+  buildSpeechProjection,
+  DEFAULT_CITATION_SETTINGS,
+} from '@/features/classification/citations';
 import {
   applyReadingMode,
   DEFAULT_CATEGORY_SETTINGS,
@@ -13,7 +16,9 @@ import { repetitionSignature } from '@/features/classification/repeated';
 
 describe('repetitionSignature', () => {
   it('treats page-specific numbers as equivalent', () => {
-    expect(repetitionSignature('Chapter 3, page 41')).toBe(repetitionSignature('Chapter 3, page 42'));
+    expect(repetitionSignature('Chapter 3, page 41')).toBe(
+      repetitionSignature('Chapter 3, page 42'),
+    );
   });
 
   it('keeps genuinely different text distinct', () => {
@@ -21,7 +26,9 @@ describe('repetitionSignature', () => {
   });
 
   it('ignores case and punctuation differences', () => {
-    expect(repetitionSignature('Journal of Nephrology.')).toBe(repetitionSignature('JOURNAL OF NEPHROLOGY'));
+    expect(repetitionSignature('Journal of Nephrology.')).toBe(
+      repetitionSignature('JOURNAL OF NEPHROLOGY'),
+    );
   });
 });
 
@@ -119,14 +126,22 @@ describe('decideInclusion', () => {
   });
 
   it('INCLUDES medium-confidence furniture and flags it', () => {
-    const decision = decideInclusion(region({ confidence: 0.65 }), 'clean', DEFAULT_CATEGORY_SETTINGS);
+    const decision = decideInclusion(
+      region({ confidence: 0.65 }),
+      'clean',
+      DEFAULT_CATEGORY_SETTINGS,
+    );
     expect(decision.included).toBe(true);
     expect(decision.uncertain).toBe(true);
     expect(decision.reason).toContain('still being read');
   });
 
   it('includes low-confidence detections as body content', () => {
-    const decision = decideInclusion(region({ confidence: 0.3 }), 'clean', DEFAULT_CATEGORY_SETTINGS);
+    const decision = decideInclusion(
+      region({ confidence: 0.3 }),
+      'clean',
+      DEFAULT_CATEGORY_SETTINGS,
+    );
     expect(decision.included).toBe(true);
     expect(decision.uncertain).toBe(false);
   });
@@ -156,7 +171,10 @@ describe('decideInclusion', () => {
   it('follows category switches in Custom Mode', () => {
     const off = decideInclusion(region({}), 'custom', DEFAULT_CATEGORY_SETTINGS);
     expect(off.included).toBe(false);
-    const on = decideInclusion(region({}), 'custom', { ...DEFAULT_CATEGORY_SETTINGS, headers: true });
+    const on = decideInclusion(region({}), 'custom', {
+      ...DEFAULT_CATEGORY_SETTINGS,
+      headers: true,
+    });
     expect(on.included).toBe(true);
   });
 
@@ -231,7 +249,9 @@ describe('applyReadingMode and summarizeExclusions', () => {
   });
 
   it('counts skipped words for the disclosure', () => {
-    const summary = summarizeExclusions(applyReadingMode(regions, 'clean', DEFAULT_CATEGORY_SETTINGS));
+    const summary = summarizeExclusions(
+      applyReadingMode(regions, 'clean', DEFAULT_CATEGORY_SETTINGS),
+    );
     expect(summary.excludedRegions).toBe(1);
     expect(summary.excludedWords).toBe(3);
     expect(summary.includedWords).toBe(8);
@@ -239,7 +259,9 @@ describe('applyReadingMode and summarizeExclusions', () => {
   });
 
   it('an override restores an excluded region without touching the others', () => {
-    const applied = applyReadingMode(regions, 'clean', DEFAULT_CATEGORY_SETTINGS, { r1: 'include' });
+    const applied = applyReadingMode(regions, 'clean', DEFAULT_CATEGORY_SETTINGS, {
+      r1: 'include',
+    });
     expect(applied.find((r) => r.id === 'r1')!.included).toBe(true);
     expect(applied.find((r) => r.id === 'r2')!.included).toBe(true);
   });
@@ -277,7 +299,9 @@ describe('buildSpeechProjection', () => {
 
   it('changes nothing at all in Strict Verbatim Mode', () => {
     const text = 'Sodium is reabsorbed [12] in the tubule (Alvarez, 2019).¹';
-    const projection = buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS, { strictVerbatim: true });
+    const projection = buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS, {
+      strictVerbatim: true,
+    });
     expect(projection.text).toBe(text);
     expect(projection.skipped).toHaveLength(0);
     expect(projection.transformations).toHaveLength(0);
@@ -294,7 +318,9 @@ describe('buildSpeechProjection', () => {
     expect(projection.text).toBe('Alpha beta gamma.');
     // "beta" starts at 6 in the spoken text and at 11 in the display text.
     expect(projection.toDisplayOffset(6)).toBe(11);
-    expect(text.slice(projection.toDisplayOffset(6), projection.toDisplayOffset(6) + 4)).toBe('beta');
+    expect(text.slice(projection.toDisplayOffset(6), projection.toDisplayOffset(6) + 4)).toBe(
+      'beta',
+    );
   });
 
   it('leaves text with no markers untouched and allocates nothing', () => {

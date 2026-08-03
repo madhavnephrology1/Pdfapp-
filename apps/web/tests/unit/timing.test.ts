@@ -61,7 +61,11 @@ describe('wordProgress', () => {
         { start: 8, end: 13, audioStart: 1, audioEnd: 1.5 },
       ],
     });
-    expect(result).toEqual({ wordIndex: 2, source: 'provider-exact', estimated: false });
+    expect(result).toEqual({
+      wordIndex: 2,
+      source: 'provider-exact',
+      estimated: false,
+    });
   });
 
   it('uses browser boundary character offsets and reports exact', () => {
@@ -72,7 +76,11 @@ describe('wordProgress', () => {
       timingSource: 'browser-boundary',
       browserCharIndex: 8,
     });
-    expect(result).toEqual({ wordIndex: 2, source: 'browser-boundary', estimated: false });
+    expect(result).toEqual({
+      wordIndex: 2,
+      source: 'browser-boundary',
+      estimated: false,
+    });
   });
 
   it('falls back to a proportional estimate and LABELS it estimated', () => {
@@ -102,7 +110,12 @@ describe('wordProgress', () => {
 
   it('returns null for an empty sentence', () => {
     expect(
-      wordProgress({ sentenceText: '   ', elapsedInSentence: 0, sentenceDuration: 1, timingSource: 'none' }),
+      wordProgress({
+        sentenceText: '   ',
+        elapsedInSentence: 0,
+        sentenceDuration: 1,
+        timingSource: 'none',
+      }),
     ).toBeNull();
   });
 

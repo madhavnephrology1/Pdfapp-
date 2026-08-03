@@ -93,9 +93,9 @@ describe('segmentation is lossless', () => {
   });
 
   it('throws when the invariant is violated', () => {
-    expect(() =>
-      assertSegmentationIsLossless('abc', [{ start: 0, end: 2, text: 'ab' }]),
-    ).toThrow(/altered the source text/);
+    expect(() => assertSegmentationIsLossless('abc', [{ start: 0, end: 2, text: 'ab' }])).toThrow(
+      /altered the source text/,
+    );
   });
 });
 
@@ -103,12 +103,7 @@ describe('splitWords', () => {
   it('maps every word back to its offsets', () => {
     const text = 'Tubular reabsorption recovers sodium.';
     const words = splitWords(text);
-    expect(words.map((w) => w.text)).toEqual([
-      'Tubular',
-      'reabsorption',
-      'recovers',
-      'sodium.',
-    ]);
+    expect(words.map((w) => w.text)).toEqual(['Tubular', 'reabsorption', 'recovers', 'sodium.']);
     for (const word of words) expect(text.slice(word.start, word.end)).toBe(word.text);
   });
 

@@ -1,8 +1,4 @@
-import type {
-  DocumentRegion,
-  DocumentSettings,
-  SentenceRecord,
-} from '@pdfreader/shared-types';
+import type { DocumentRegion, DocumentSettings, SentenceRecord } from '@pdfreader/shared-types';
 import { buildSpeechProjection, type SkippedSpan } from '@/features/classification/citations';
 import { applyReadingMode } from '@/features/classification/modes';
 import type { QueueItem } from '@/features/playback/chunking';
@@ -32,6 +28,53 @@ export interface ReadingQueue {
   totalCharacters: number;
 }
 
+/**
+ * Applies the footnote reading preference.
+ *
+ * `skip` drops footnote regions from the audio. `after-page` and `after-section`
+ * move them to the end of their page or section, so a footnote no longer
+ * interrupts the sentence that referenced it. Ordering is stable, so the
+ * relative order of footnotes and of body text is preserved within each group.
+ *
+ * This only ever REORDERS or omits whole footnote regions. It never edits a
+ * sentence, and the reader panel still shows footnotes where they sit on the page.
+ */
+export function applyFootnoteOrdering(
+  entries: ReadingQueueEntry[],
+  mode: DocumentSettings['citations']['footnoteReading'],
+): ReadingQueueEntry[] {
+  const isFootnote = (entry: ReadingQueueEntry): boolean => entry.regionType === 'footnote';
+
+  if (mode === 'skip') return entries.filter((entry) => !isFootnote(entry));
+  if (!entries.some(isFootnote)) return entries;
+
+  // Group key: the page, or the index of the most recent heading.
+  const keys: number[] = [];
+  let section = 0;
+  for (const entry of entries) {
+    if (mode === 'after-section' && entry.regionType === 'heading') section += 1;
+    keys.push(mode === 'after-page' ? entry.sentence.pageNumber : section);
+  }
+
+  const groups = new Map<number, { body: ReadingQueueEntry[]; notes: ReadingQueueEntry[] }>();
+  const order: number[] = [];
+  entries.forEach((entry, index) => {
+    const key = keys[index];
+    let group = groups.get(key);
+    if (!group) {
+      group = { body: [], notes: [] };
+      groups.set(key, group);
+      order.push(key);
+    }
+    (isFootnote(entry) ? group.notes : group.body).push(entry);
+  });
+
+  return order.flatMap((key) => {
+    const group = groups.get(key)!;
+    return [...group.body, ...group.notes];
+  });
+}
+
 export function buildReadingQueue(
   regions: DocumentRegion[],
   sentences: SentenceRecord[],
@@ -47,15 +90,15 @@ export function buildReadingQueue(
   const strictVerbatim = settings.readingMode === 'strict-verbatim';
 
   const entries: ReadingQueueEntry[] = [];
-  let totalCharacters = 0;
 
   for (const sentence of sentences) {
     const region = byId.get(sentence.regionId);
     if (!region || !region.included) continue;
 
-    // Tables are their own regions; reading one as a flat stream of numbers is
-    // meaningless, so the default is to skip them entirely.
-    if (region.type === 'table' && settings.tables.mode === 'skip') continue;
+    // Tables are their own regions; reading one as a stream of numbers is
+    // meaningless, so the default is to skip them. Strict Verbatim Mode reads
+    // everything extractable, so the preference does not apply there.
+    if (!strictVerbatim && region.type === 'table' && settings.tables.mode === 'skip') continue;
 
     const projection = buildSpeechProjection(sentence.text, settings.citations, {
       strictVerbatim,
@@ -70,11 +113,17 @@ export function buildReadingQueue(
       skipped: projection.skipped,
       regionType: region.type,
     });
-    totalCharacters += projection.text.length;
   }
 
+  // Strict Verbatim Mode reads everything in document order, so the footnote
+  // preference does not apply there.
+  const ordered = strictVerbatim
+    ? entries
+    : applyFootnoteOrdering(entries, settings.citations.footnoteReading);
+  const totalCharacters = ordered.reduce((sum, entry) => sum + entry.speechText.length, 0);
+
   return {
-    entries,
+    entries: ordered,
     regions: applied,
     excludedRegions: applied.filter((region) => !region.included),
     uncertainRegions: applied.filter(
@@ -99,7 +148,11 @@ export interface ReaderParagraph {
   included: boolean;
   /** True when the region was included but its classification was uncertain. */
   uncertain: boolean;
-  sentences: { sentence: SentenceRecord; skipped: SkippedSpan[]; spoken: boolean }[];
+  sentences: {
+    sentence: SentenceRecord;
+    skipped: SkippedSpan[];
+    spoken: boolean;
+  }[];
 }
 
 export function buildReaderParagraphs(

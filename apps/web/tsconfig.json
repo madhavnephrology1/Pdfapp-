@@ -1,12 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "ES2022",
-      "WebWorker"
-    ],
+    "lib": ["dom", "dom.iterable", "ES2022", "WebWorker"],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -19,25 +14,16 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "types": [
-      "node",
-      "vitest/globals"
-    ],
+    "types": ["node", "vitest/globals"],
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@pdfreader/shared-types": [
-        "../../packages/shared-types/src/index.ts"
-      ],
-      "@pdfreader/test-fixtures": [
-        "../../packages/test-fixtures/src/index.ts"
-      ]
+      "@/*": ["./*"],
+      "@pdfreader/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@pdfreader/test-fixtures": ["../../packages/test-fixtures/src/index.ts"]
     }
   },
   "include": [
@@ -49,8 +35,5 @@
     "../../packages/test-fixtures/src/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "tests/e2e"
-  ]
+  "exclude": ["node_modules", "tests/e2e"]
 }

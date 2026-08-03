@@ -19,7 +19,10 @@ const FRONT_MATTER_HEADINGS =
 const ROMAN = /^[ivxlcdm]{1,7}$/i;
 
 /** Returns blockId -> reason for every region judged to be front matter. */
-export function detectFrontMatter(ordered: OrderedBlock[], pages: PageBlocks[]): Map<string, string> {
+export function detectFrontMatter(
+  ordered: OrderedBlock[],
+  pages: PageBlocks[],
+): Map<string, string> {
   const result = new Map<string, string>();
   if (pages.length === 0) return result;
 
@@ -43,7 +46,10 @@ export function detectFrontMatter(ordered: OrderedBlock[], pages: PageBlocks[]):
   const firstArabicPage = arabicPages.size > 0 ? Math.min(...arabicPages) : null;
 
   for (const entry of ordered) {
-    const text = entry.block.lines.map((line) => line.text).join(' ').trim();
+    const text = entry.block.lines
+      .map((line) => line.text)
+      .join(' ')
+      .trim();
     const reasons: string[] = [];
 
     if (romanPages.has(entry.pageNumber)) {
@@ -56,7 +62,8 @@ export function detectFrontMatter(ordered: OrderedBlock[], pages: PageBlocks[]):
       reasons.push(`it precedes page ${firstArabicPage}, the first arabic-numbered page`);
     }
 
-    if (reasons.length > 0) result.set(entry.block.id, `front matter because ${reasons.join(' and ')}`);
+    if (reasons.length > 0)
+      result.set(entry.block.id, `front matter because ${reasons.join(' and ')}`);
   }
 
   // Propagate the heading's judgement to the rest of its page, so a "Contents"
@@ -67,7 +74,10 @@ export function detectFrontMatter(ordered: OrderedBlock[], pages: PageBlocks[]):
   for (const entry of ordered) {
     if (result.has(entry.block.id)) continue;
     if (frontMatterPages.has(entry.pageNumber)) {
-      result.set(entry.block.id, `on page ${entry.pageNumber}, which was identified as front matter`);
+      result.set(
+        entry.block.id,
+        `on page ${entry.pageNumber}, which was identified as front matter`,
+      );
     }
   }
 

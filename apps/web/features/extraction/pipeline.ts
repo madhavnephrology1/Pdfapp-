@@ -47,7 +47,12 @@ export interface ExtractionResult {
 export function extractPageLines(
   input: PageExtractionInput,
   documentId: string,
-): { items: RawTextItem[]; removed: RawTextItem[]; lines: TextLine[]; columns: ReturnType<typeof detectColumns> } {
+): {
+  items: RawTextItem[];
+  removed: RawTextItem[];
+  lines: TextLine[];
+  columns: ReturnType<typeof detectColumns>;
+} {
   const all = toRawTextItems(input.items, documentId, input.pageNumber);
   const { items, removed } = removeDuplicateItems(all);
   const columns = detectColumns(items, input.width);
@@ -67,7 +72,10 @@ export function extractDocument(
   documentId: string,
   pageInputs: PageExtractionInput[],
 ): ExtractionResult {
-  const perPage = pageInputs.map((input) => ({ input, ...extractPageLines(input, documentId) }));
+  const perPage = pageInputs.map((input) => ({
+    input,
+    ...extractPageLines(input, documentId),
+  }));
 
   const allLines = perPage.flatMap((page) => page.lines);
   const bodyFontSize = estimateBodyFontSize(allLines);
@@ -79,7 +87,8 @@ export function extractDocument(
     const ordered = orderLines(page.lines, page.columns.columns.length);
     // Prefer this page's own body size: a references or index page set in a
     // smaller face must not make ordinary body text elsewhere look oversized.
-    const pageBodyFontSize = page.lines.length >= 4 ? estimateBodyFontSize(page.lines) : bodyFontSize;
+    const pageBodyFontSize =
+      page.lines.length >= 4 ? estimateBodyFontSize(page.lines) : bodyFontSize;
     const grouped = groupBlocks(ordered, {
       documentId,
       pageNumber: page.input.pageNumber,
@@ -91,7 +100,8 @@ export function extractDocument(
 
     const charCount = page.items.reduce((sum, item) => sum + item.text.trim().length, 0);
     const orderUncertain =
-      page.columns.confidence < UNCERTAIN_ORDER_CONFIDENCE || blocks.some((block) => block.orderUncertain);
+      page.columns.confidence < UNCERTAIN_ORDER_CONFIDENCE ||
+      blocks.some((block) => block.orderUncertain);
 
     layouts.push({
       pageNumber: page.input.pageNumber,
@@ -107,8 +117,14 @@ export function extractDocument(
     });
   }
 
-  const regions = classifyDocument({ documentId, pages: layouts, bodyFontSize });
-  const blocksById = new Map(layouts.flatMap((page) => page.blocks).map((block) => [block.id, block]));
+  const regions = classifyDocument({
+    documentId,
+    pages: layouts,
+    bodyFontSize,
+  });
+  const blocksById = new Map(
+    layouts.flatMap((page) => page.blocks).map((block) => [block.id, block]),
+  );
 
   const paragraphs: ParagraphRecord[] = [];
   const sentences: SentenceRecord[] = [];
@@ -134,7 +150,9 @@ export function extractDocument(
     const spans = segmentSentences(joined.text);
     assertSegmentationIsLossless(joined.text, spans);
 
-    const itemsById = new Map(block.lines.flatMap((line) => line.items).map((item) => [item.id, item]));
+    const itemsById = new Map(
+      block.lines.flatMap((line) => line.items).map((item) => [item.id, item]),
+    );
     const sentenceIds: string[] = [];
 
     spans.forEach((span, index) => {
@@ -235,7 +253,9 @@ function boundingBoxesForItems(
 
 /** Builds a navigable outline from detected headings. */
 export function buildOutline(regions: DocumentRegion[]): OutlineNode[] {
-  const headings = regions.filter((region) => region.type === 'heading' && region.text.trim() !== '');
+  const headings = regions.filter(
+    (region) => region.type === 'heading' && region.text.trim() !== '',
+  );
   if (headings.length === 0) return [];
 
   // Heading level from classification confidence: a strongly-signalled heading

@@ -26,7 +26,9 @@ test.describe('upload and extraction', () => {
 
     // The PDF itself is rendered to a canvas.
     await expect(page.locator('canvas').first()).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Document navigation' })).toContainText('1 page');
+    await expect(page.getByRole('navigation', { name: 'Document navigation' })).toContainText(
+      '1 page',
+    );
   });
 
   test('joins a word split across lines and never shows the broken form', async ({ page }) => {
@@ -57,9 +59,14 @@ test.describe('content review', () => {
 
     // Furniture is excluded, listed, and explained.
     await expect(dialog.getByText(/regions? .* are being skipped/)).toBeVisible();
-    await expect(dialog.getByText('Journal of Clinical Nephrology', { exact: false }).first()).toBeVisible();
+    await expect(
+      dialog.getByText('Journal of Clinical Nephrology', { exact: false }).first(),
+    ).toBeVisible();
 
-    await dialog.getByRole('button', { name: /Show the evidence/ }).first().click();
+    await dialog
+      .getByRole('button', { name: /Show the evidence/ })
+      .first()
+      .click();
     await expect(dialog.getByText(/appears on \d+ of \d+ pages/).first()).toBeVisible();
 
     // Everything skipped can be brought back.
@@ -129,7 +136,9 @@ test.describe('playback', () => {
   test('changing speed keeps the current sentence', async ({ page }) => {
     await upload(page, 'single-page');
     await page.getByRole('button', { name: 'Play' }).click();
-    await expect(page.locator('[aria-current="true"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[aria-current="true"]')).toBeVisible({
+      timeout: 20_000,
+    });
 
     const before = await page.locator('[aria-current="true"]').innerText();
     await page.getByTitle('Reading speed').selectOption('1.5');
@@ -162,7 +171,9 @@ test.describe('playback', () => {
     await upload(page, 'single-page');
     // With no server provider configured the browser voice is used; the panel
     // must say which kind of timing is in play rather than implying precision.
-    await expect(page.getByText(/word timing|highlighting only|Estimated word position/i).first()).toBeVisible();
+    await expect(
+      page.getByText(/word timing|highlighting only|Estimated word position/i).first(),
+    ).toBeVisible();
   });
 });
 
@@ -175,7 +186,10 @@ test.describe('reader controls', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     const slider = page.getByLabel(/Text size/);
     await slider.fill('26');
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Close' }).click();
+    await page
+      .getByRole('dialog', { name: 'Settings' })
+      .getByRole('button', { name: 'Close' })
+      .click();
 
     const after = await article.evaluate((el) => getComputedStyle(el).fontSize);
     expect(parseFloat(after)).toBeGreaterThan(parseFloat(before));
@@ -224,7 +238,10 @@ test.describe('persistence', () => {
     await upload(page, 'single-page');
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByLabel(/Text size/).fill('28');
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Close' }).click();
+    await page
+      .getByRole('dialog', { name: 'Settings' })
+      .getByRole('button', { name: 'Close' })
+      .click();
 
     await page.waitForTimeout(600);
     await upload(page, 'single-page');
@@ -247,7 +264,9 @@ test.describe('accessibility', () => {
     await upload(page, 'single-page');
     await page.locator('#reading-text').click();
     await page.keyboard.press('Space');
-    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({
+      timeout: 20_000,
+    });
     await page.keyboard.press('Space');
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   });

@@ -25,7 +25,12 @@ interface ReaderDB extends DBSchema {
   /** Only written when the user opts in to keeping the file locally. */
   documents: {
     key: string;
-    value: { fingerprint: string; fileName: string; bytes: ArrayBuffer; storedAt: number };
+    value: {
+      fingerprint: string;
+      fileName: string;
+      bytes: ArrayBuffer;
+      storedAt: number;
+    };
   };
 }
 
@@ -131,7 +136,10 @@ export async function deleteDocumentData(fingerprint: string): Promise<void> {
 }
 
 /** Approximate local storage usage, for the privacy panel. */
-export async function estimateStorageUsage(): Promise<{ usedBytes: number; quotaBytes: number } | null> {
+export async function estimateStorageUsage(): Promise<{
+  usedBytes: number;
+  quotaBytes: number;
+} | null> {
   if (typeof navigator === 'undefined' || !navigator.storage?.estimate) return null;
   const estimate = await navigator.storage.estimate();
   return { usedBytes: estimate.usage ?? 0, quotaBytes: estimate.quota ?? 0 };

@@ -25,7 +25,10 @@ const sentence = (id: string, text: string, page = 1): SentenceRecord => ({
 });
 
 const queueOf = (...texts: string[]): QueueItem[] =>
-  texts.map((text, index) => ({ sentence: sentence(`s${index}`, text), speechText: text }));
+  texts.map((text, index) => ({
+    sentence: sentence(`s${index}`, text),
+    speechText: text,
+  }));
 
 const options = {
   maxChars: 100,
@@ -45,7 +48,9 @@ describe('buildChunks', () => {
   });
 
   it('never exceeds the provider character limit', () => {
-    const queue = queueOf(...Array.from({ length: 40 }, (_, i) => `Sentence number ${i} of the queue.`));
+    const queue = queueOf(
+      ...Array.from({ length: 40 }, (_, i) => `Sentence number ${i} of the queue.`),
+    );
     const chunks = buildChunks(queue, { ...options, maxChars: 120 });
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) expect(chunk.text.length).toBeLessThanOrEqual(120);
@@ -99,8 +104,14 @@ describe('buildChunks', () => {
 
   it('records every page the chunk covers', () => {
     const queue: QueueItem[] = [
-      { sentence: sentence('s0', 'On page one.', 1), speechText: 'On page one.' },
-      { sentence: sentence('s1', 'On page two.', 2), speechText: 'On page two.' },
+      {
+        sentence: sentence('s0', 'On page one.', 1),
+        speechText: 'On page one.',
+      },
+      {
+        sentence: sentence('s1', 'On page two.', 2),
+        speechText: 'On page two.',
+      },
     ];
     expect(buildChunks(queue, options)[0].pageNumbers).toEqual([1, 2]);
   });
@@ -188,15 +199,26 @@ describe('computeCacheKey', () => {
   });
 
   it('does not collide on field-boundary ambiguity', () => {
-    const a = computeCacheKey('x', { ...options, voiceId: 'ab', provider: 'c' });
-    const b = computeCacheKey('x', { ...options, voiceId: 'a', provider: 'bc' });
+    const a = computeCacheKey('x', {
+      ...options,
+      voiceId: 'ab',
+      provider: 'c',
+    });
+    const b = computeCacheKey('x', {
+      ...options,
+      voiceId: 'a',
+      provider: 'bc',
+    });
     expect(a).not.toBe(b);
   });
 });
 
 describe('findChunkForSentence', () => {
   it('locates the chunk containing a sentence', () => {
-    const chunks = buildChunks(queueOf('One.', 'Two.', 'Three.'), { ...options, maxChars: 10 });
+    const chunks = buildChunks(queueOf('One.', 'Two.', 'Three.'), {
+      ...options,
+      maxChars: 10,
+    });
     const found = findChunkForSentence(chunks, 's2');
     expect(found).not.toBeNull();
     expect(found!.chunk.text.slice(found!.start, found!.end)).toBe('Three.');

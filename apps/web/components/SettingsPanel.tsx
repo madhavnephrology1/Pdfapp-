@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ReaderTheme } from '@pdfreader/shared-types';
-import {
-  FONT_SIZE_RANGE,
-  LINE_HEIGHT_RANGE,
-  TEXT_WIDTH_RANGE,
-} from '@/features/settings/defaults';
+import { FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, TEXT_WIDTH_RANGE } from '@/features/settings/defaults';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAllStoredData, estimateStorageUsage } from '@/lib/persistence';
 import { clearServerAudioCache, fetchHealth, type ServerHealth } from '@/lib/tts-client';
@@ -17,7 +13,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { settings, setSettings } = useDocumentStore();
   const { theme, setTheme } = useTheme();
   const [health, setHealth] = useState<ServerHealth | null>(null);
-  const [storage, setStorage] = useState<{ usedBytes: number; quotaBytes: number } | null>(null);
+  const [storage, setStorage] = useState<{
+    usedBytes: number;
+    quotaBytes: number;
+  } | null>(null);
   const [deleted, setDeleted] = useState(false);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     void estimateStorageUsage().then(setStorage);
   }, []);
 
-  const { reader, citations, tables, equations, images } = settings;
+  const { reader, citations, tables } = settings;
   const strict = settings.readingMode === 'strict-verbatim';
 
   return (
@@ -88,7 +87,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               <input
                 type="checkbox"
                 checked={reader.focusMode}
-                onChange={(event) => setSettings({ reader: { ...reader, focusMode: event.target.checked } })}
+                onChange={(event) =>
+                  setSettings({
+                    reader: { ...reader, focusMode: event.target.checked },
+                  })
+                }
               />
               <span>
                 Focus mode
@@ -113,14 +116,20 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 disabled={strict}
                 onChange={(event) =>
                   setSettings({
-                    citations: { ...citations, readParentheticalCitations: event.target.checked },
+                    citations: {
+                      ...citations,
+                      readParentheticalCitations: event.target.checked,
+                    },
                   })
                 }
               />
               <span>
                 Read parenthetical citations
-                <span className="hint"> — such as “(Smith, 2019)”. Keeping them preserves the
-                author&apos;s sentence exactly.</span>
+                <span className="hint">
+                  {' '}
+                  — such as “(Smith, 2019)”. Keeping them preserves the author&apos;s sentence
+                  exactly.
+                </span>
               </span>
             </label>
 
@@ -131,14 +140,20 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 disabled={strict}
                 onChange={(event) =>
                   setSettings({
-                    citations: { ...citations, skipIsolatedNumericMarkers: event.target.checked },
+                    citations: {
+                      ...citations,
+                      skipIsolatedNumericMarkers: event.target.checked,
+                    },
                   })
                 }
               />
               <span>
                 Skip isolated numeric markers
-                <span className="hint"> — such as “[12]”. The sentence is still shown in full with
-                the marker struck through.</span>
+                <span className="hint">
+                  {' '}
+                  — such as “[12]”. The sentence is still shown in full with the marker struck
+                  through.
+                </span>
               </span>
             </label>
 
@@ -149,7 +164,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 disabled={strict}
                 onChange={(event) =>
                   setSettings({
-                    citations: { ...citations, skipSuperscriptMarkers: event.target.checked },
+                    citations: {
+                      ...citations,
+                      skipSuperscriptMarkers: event.target.checked,
+                    },
                   })
                 }
               />
@@ -182,73 +200,32 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </section>
 
           <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Tables, equations and images</h3>
+            <h3 className={styles.sectionTitle}>Tables</h3>
 
             <div className={styles.field}>
               <label className="field-label" htmlFor="table-select">
-                Tables
+                How tables are read
               </label>
               <select
                 id="table-select"
                 className={styles.select}
                 value={tables.mode}
                 onChange={(event) =>
-                  setSettings({ tables: { mode: event.target.value as typeof tables.mode } })
+                  setSettings({
+                    tables: { mode: event.target.value as typeof tables.mode },
+                  })
                 }
               >
                 <option value="skip">Skip tables</option>
-                <option value="row-by-row">Read row by row (adds generated row labels)</option>
+                <option value="read-in-row-order">Read the cells in row order</option>
               </select>
               <p className="hint">
-                Row-by-row reading adds wording this app generates (“Row 2”, column headings) so the
-                numbers make sense aloud. Cell text itself is always read exactly as extracted.
-                Not available in Strict Verbatim Mode.
+                Tables are skipped by default because a table read as a stream of numbers is
+                meaningless. Reading them aloud reproduces the cell text exactly, row by row, with
+                no added labels. Table captions are controlled by the “captions” category in Custom
+                Mode.
               </p>
             </div>
-
-            <div className={styles.field}>
-              <label className="field-label" htmlFor="equation-select">
-                Equations
-              </label>
-              <select
-                id="equation-select"
-                className={styles.select}
-                value={equations.mode}
-                disabled={strict}
-                onChange={(event) =>
-                  setSettings({ equations: { mode: event.target.value as typeof equations.mode } })
-                }
-              >
-                <option value="skip">Skip equations</option>
-                <option value="literal-source">Read the source expression literally</option>
-                <option value="accessible-narration">Accessible narration (generated)</option>
-              </select>
-            </div>
-
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={images.readAltText}
-                onChange={(event) =>
-                  setSettings({ images: { ...images, readAltText: event.target.checked } })
-                }
-              />
-              <span>
-                Read image alt text when the PDF provides it
-                <span className="hint"> — no description is ever invented for an image.</span>
-              </span>
-            </label>
-
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={images.readCaptions}
-                onChange={(event) =>
-                  setSettings({ images: { ...images, readCaptions: event.target.checked } })
-                }
-              />
-              <span>Read figure captions</span>
-            </label>
           </section>
 
           <section className={styles.section}>
@@ -271,22 +248,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               </p>
             )}
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={settings.ocrConsent}
-                disabled={!health?.ocrProvider}
-                onChange={(event) => setSettings({ ocrConsent: event.target.checked })}
-              />
-              <span>
-                Allow scanned pages to be sent for text recognition
-                <span className="hint">
-                  {health?.ocrProvider
-                    ? ` — page images would be sent to "${health.ocrProvider}".`
-                    : ' — unavailable, because no recognition provider is configured.'}
-                </span>
-              </span>
-            </label>
+            <p className={styles.privacyFact}>
+              Sending scanned pages for text recognition is not available in the interface yet, so
+              no page image is sent anywhere. Scanned pages are reported as having no readable text
+              rather than guessed at.
+            </p>
 
             <div className={styles.dangerZone}>
               <button

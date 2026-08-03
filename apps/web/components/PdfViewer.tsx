@@ -63,7 +63,9 @@ export function PdfViewer() {
   useEffect(() => {
     if (activeBoxes.length === 0) return;
     const page = activeBoxes[0].pageNumber;
-    const element = scrollRef.current?.querySelector<HTMLElement>(`[data-page-container="${page}"]`);
+    const element = scrollRef.current?.querySelector<HTMLElement>(
+      `[data-page-container="${page}"]`,
+    );
     element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [activeBoxes]);
 
@@ -139,18 +141,20 @@ export function PdfViewer() {
       </div>
 
       <div ref={scrollRef} className={styles.scroll}>
-        {doc
-          ? pages.map((page) => (
-              <PdfPage
-                key={page.pageNumber}
-                doc={doc}
-                pageNumber={page.pageNumber}
-                zoom={zoom}
-                boxes={activeBoxes.filter((box) => box.pageNumber === page.pageNumber)}
-                onVisible={() => setCurrentPage(page.pageNumber)}
-              />
-            ))
-          : <p className={styles.loading}>Rendering pages…</p>}
+        {doc ? (
+          pages.map((page) => (
+            <PdfPage
+              key={page.pageNumber}
+              doc={doc}
+              pageNumber={page.pageNumber}
+              zoom={zoom}
+              boxes={activeBoxes.filter((box) => box.pageNumber === page.pageNumber)}
+              onVisible={() => setCurrentPage(page.pageNumber)}
+            />
+          ))
+        ) : (
+          <p className={styles.loading}>Rendering pages…</p>
+        )}
       </div>
     </div>
   );

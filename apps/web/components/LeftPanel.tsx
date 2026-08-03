@@ -57,9 +57,7 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
   const searchResults = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (term.length < 3) return [];
-    return sentences
-      .filter((sentence) => sentence.text.toLowerCase().includes(term))
-      .slice(0, 40);
+    return sentences.filter((sentence) => sentence.text.toLowerCase().includes(term)).slice(0, 40);
   }, [search, sentences]);
 
   const scannedPages = pages.filter((page) => page.likelyScanned);
@@ -72,7 +70,8 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
           {fileName || 'No document'}
         </h2>
         <p className={styles.meta}>
-          {pages.length} page{pages.length === 1 ? '' : 's'} · {(fileSize / 1_048_576).toFixed(1)} MB
+          {pages.length} page{pages.length === 1 ? '' : 's'} · {(fileSize / 1_048_576).toFixed(1)}{' '}
+          MB
         </p>
 
         <div className={styles.progressBlock} aria-live="polite">

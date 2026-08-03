@@ -39,7 +39,13 @@ export function computeCacheKey(
 ): string {
   const textHash = hash64(text);
   return hash64(
-    compositeKey(options.provider, options.voiceId, options.speed.toFixed(2), options.language, textHash),
+    compositeKey(
+      options.provider,
+      options.voiceId,
+      options.speed.toFixed(2),
+      options.language,
+      textHash,
+    ),
   );
 }
 
@@ -140,7 +146,11 @@ export function buildChunks(queue: QueueItem[], options: ChunkOptions): TTSChunk
     const start = text.length + (text === '' ? 0 : 1);
     if (text !== '') text += ' ';
     text += spoken;
-    sentenceOffsets.push({ sentenceId: item.sentence.id, start, end: text.length });
+    sentenceOffsets.push({
+      sentenceId: item.sentence.id,
+      start,
+      end: text.length,
+    });
     pageNumbers.add(item.sentence.pageNumber);
   }
 

@@ -23,10 +23,7 @@ describe('playback state machine', () => {
   });
 
   it('does not autoplay: PREPARE alone never reaches playing', () => {
-    const prepared = run([
-      { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
-      { type: 'READY' },
-    ]);
+    const prepared = run([{ type: 'PREPARE', voiceId: 'v', provider: 'mock' }, { type: 'READY' }]);
     expect(prepared.state).not.toBe('playing');
   });
 
@@ -35,7 +32,13 @@ describe('playback state machine', () => {
       { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
       { type: 'READY' },
       { type: 'PLAY' },
-      { type: 'SENTENCE_ADVANCED', sentenceId: 's5', paragraphId: 'p1', regionId: 'r1', page: 3 },
+      {
+        type: 'SENTENCE_ADVANCED',
+        sentenceId: 's5',
+        paragraphId: 'p1',
+        regionId: 'r1',
+        page: 3,
+      },
       { type: 'TICK', audioTimestamp: 12.5 },
     ]);
     const paused = playbackReducer(playing, { type: 'PAUSE' });
@@ -54,7 +57,13 @@ describe('playback state machine', () => {
       { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
       { type: 'READY' },
       { type: 'PLAY' },
-      { type: 'SENTENCE_ADVANCED', sentenceId: 's9', paragraphId: 'p2', regionId: 'r2', page: 4 },
+      {
+        type: 'SENTENCE_ADVANCED',
+        sentenceId: 's9',
+        paragraphId: 'p2',
+        regionId: 'r2',
+        page: 4,
+      },
       { type: 'TICK', audioTimestamp: 30 },
     ]);
     const faster = playbackReducer(playing, { type: 'SET_SPEED', speed: 1.75 });
@@ -69,9 +78,19 @@ describe('playback state machine', () => {
       { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
       { type: 'READY' },
       { type: 'PLAY' },
-      { type: 'SENTENCE_ADVANCED', sentenceId: 's3', paragraphId: 'p1', regionId: 'r1', page: 1 },
+      {
+        type: 'SENTENCE_ADVANCED',
+        sentenceId: 's3',
+        paragraphId: 'p1',
+        regionId: 'r1',
+        page: 1,
+      },
     ]);
-    const switched = playbackReducer(playing, { type: 'SET_VOICE', voiceId: 'v2', provider: 'browser' });
+    const switched = playbackReducer(playing, {
+      type: 'SET_VOICE',
+      voiceId: 'v2',
+      provider: 'browser',
+    });
     expect(switched.voiceId).toBe('v2');
     expect(switched.activeSentenceId).toBe('s3');
     expect(switched.state).toBe('buffering');
@@ -82,7 +101,13 @@ describe('playback state machine', () => {
       { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
       { type: 'READY' },
       { type: 'PLAY' },
-      { type: 'SENTENCE_ADVANCED', sentenceId: 's2', paragraphId: 'p1', regionId: 'r1', page: 1 },
+      {
+        type: 'SENTENCE_ADVANCED',
+        sentenceId: 's2',
+        paragraphId: 'p1',
+        regionId: 'r1',
+        page: 1,
+      },
       { type: 'TICK', audioTimestamp: 8 },
       { type: 'STOP' },
     ]);
@@ -96,7 +121,13 @@ describe('playback state machine', () => {
       { type: 'PREPARE', voiceId: 'v', provider: 'mock' },
       { type: 'READY' },
       { type: 'PLAY' },
-      { type: 'SEEK_SENTENCE', sentenceId: 's7', paragraphId: 'p3', regionId: 'r3', page: 2 },
+      {
+        type: 'SEEK_SENTENCE',
+        sentenceId: 's7',
+        paragraphId: 'p3',
+        regionId: 'r3',
+        page: 2,
+      },
     ]);
     expect(seeking.state).toBe('seeking');
     expect(seeking.activeSentenceId).toBe('s7');
@@ -114,7 +145,10 @@ describe('playback state machine', () => {
   });
 
   it('enters error state and can recover to paused', () => {
-    const errored = playbackReducer(initialPlaybackSnapshot, { type: 'ERROR', message: 'Provider unavailable' });
+    const errored = playbackReducer(initialPlaybackSnapshot, {
+      type: 'ERROR',
+      message: 'Provider unavailable',
+    });
     expect(errored.state).toBe('error');
     expect(errored.error).toBe('Provider unavailable');
     // PLAY must not silently clear an error.
@@ -127,14 +161,30 @@ describe('playback state machine', () => {
   it('advancing a sentence clears the stale word highlight', () => {
     const state = run([
       { type: 'WORD_BOUNDARY', wordIndex: 6, source: 'provider-exact' },
-      { type: 'SENTENCE_ADVANCED', sentenceId: 's2', paragraphId: 'p1', regionId: 'r1', page: 1 },
+      {
+        type: 'SENTENCE_ADVANCED',
+        sentenceId: 's2',
+        paragraphId: 'p1',
+        regionId: 'r1',
+        page: 1,
+      },
     ]);
     expect(state.activeWordIndex).toBeNull();
   });
 
   it('clamps volume to 0..1', () => {
-    expect(playbackReducer(initialPlaybackSnapshot, { type: 'SET_VOLUME', volume: 2 }).volume).toBe(1);
-    expect(playbackReducer(initialPlaybackSnapshot, { type: 'SET_VOLUME', volume: -1 }).volume).toBe(0);
+    expect(
+      playbackReducer(initialPlaybackSnapshot, {
+        type: 'SET_VOLUME',
+        volume: 2,
+      }).volume,
+    ).toBe(1);
+    expect(
+      playbackReducer(initialPlaybackSnapshot, {
+        type: 'SET_VOLUME',
+        volume: -1,
+      }).volume,
+    ).toBe(0);
   });
 });
 

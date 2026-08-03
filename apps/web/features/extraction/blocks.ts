@@ -115,13 +115,17 @@ export function groupBlocks(orderedLines: TextLine[], options: BlockOptions): La
     }
 
     if (medianGap > 0 && gap > medianGap * BLOCK_GAP_RATIO) {
-      reasons.push(`vertical gap ${gap.toFixed(1)}pt exceeds ${(medianGap * BLOCK_GAP_RATIO).toFixed(1)}pt`);
+      reasons.push(
+        `vertical gap ${gap.toFixed(1)}pt exceeds ${(medianGap * BLOCK_GAP_RATIO).toFixed(1)}pt`,
+      );
     }
 
     const sizeDelta = Math.abs(previous.fontSize - line.fontSize);
     const sizeBase = Math.max(previous.fontSize, line.fontSize) || 1;
     if (sizeDelta / sizeBase > FONT_SIZE_CHANGE_RATIO) {
-      reasons.push(`font size changed ${previous.fontSize.toFixed(1)} -> ${line.fontSize.toFixed(1)}`);
+      reasons.push(
+        `font size changed ${previous.fontSize.toFixed(1)} -> ${line.fontSize.toFixed(1)}`,
+      );
     }
 
     const blockLeft = Math.min(...currentLines.map((l) => l.x));
@@ -162,7 +166,10 @@ interface BlockClassification {
  * can compare pages against each other.
  */
 function classifyBlock(lines: TextLine[], options: BlockOptions): BlockClassification {
-  const text = lines.map((line) => line.text).join(' ').trim();
+  const text = lines
+    .map((line) => line.text)
+    .join(' ')
+    .trim();
   const evidence: string[] = [];
   const fontSize = median(lines.map((line) => line.fontSize));
   const body = options.bodyFontSize || fontSize || 10;
@@ -185,7 +192,9 @@ function classifyBlock(lines: TextLine[], options: BlockOptions): BlockClassific
   }
 
   if (LIST_PREFIX.test(lines[0].text)) {
-    evidence.push(`first line starts with a list marker: ${JSON.stringify(lines[0].text.slice(0, 8))}`);
+    evidence.push(
+      `first line starts with a list marker: ${JSON.stringify(lines[0].text.slice(0, 8))}`,
+    );
     return { type: 'list', confidence: 0.7, evidence };
   }
 
@@ -199,7 +208,11 @@ function classifyBlock(lines: TextLine[], options: BlockOptions): BlockClassific
     }
     if (isBold) evidence.push('bold font');
     evidence.push(`${lines.length} line(s), ${text.length} characters`);
-    return { type: 'heading', confidence: fontSize > body * HEADING_SIZE_RATIO ? 0.8 : 0.6, evidence };
+    return {
+      type: 'heading',
+      confidence: fontSize > body * HEADING_SIZE_RATIO ? 0.8 : 0.6,
+      evidence,
+    };
   }
 
   evidence.push('default body classification');

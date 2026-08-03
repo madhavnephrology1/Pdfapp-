@@ -53,7 +53,12 @@ export function detectPageNumbers(pages: PageNumberInput[]): Map<string, PageNum
 
   // Horizontal positions of accepted candidates, to reward consistency.
   const positions: number[] = [];
-  const provisional: { blockId: string; pattern: Pattern; centreX: number; evidence: string[] }[] = [];
+  const provisional: {
+    blockId: string;
+    pattern: Pattern;
+    centreX: number;
+    evidence: string[];
+  }[] = [];
 
   for (const page of pages) {
     const headerLimit = page.pageHeight * (1 - HEADER_BAND);
@@ -95,12 +100,18 @@ export function detectPageNumbers(pages: PageNumberInput[]): Map<string, PageNum
       const drift = Math.abs(candidate.centreX - mean);
       if (drift <= 12) {
         confidence += 0.15;
-        evidence.push(`horizontal position matches other page numbers within ${drift.toFixed(0)}pt`);
+        evidence.push(
+          `horizontal position matches other page numbers within ${drift.toFixed(0)}pt`,
+        );
       } else {
-        evidence.push(`horizontal position differs from other page numbers by ${drift.toFixed(0)}pt`);
+        evidence.push(
+          `horizontal position differs from other page numbers by ${drift.toFixed(0)}pt`,
+        );
       }
     } else {
-      evidence.push('only one page-number candidate in the document, so cross-page corroboration is unavailable');
+      evidence.push(
+        'only one page-number candidate in the document, so cross-page corroboration is unavailable',
+      );
       confidence -= 0.05;
     }
     findings.set(candidate.blockId, {

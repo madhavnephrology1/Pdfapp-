@@ -164,7 +164,8 @@ export function AppShell() {
         <div className={styles.processing} role="status" aria-live="polite">
           <span>
             Processing {fileName} — {progress.phase}
-            {progress.pagesTotal > 0 && ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
+            {progress.pagesTotal > 0 &&
+              ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
           </span>
           <button type="button" className="btn btn-sm" onClick={cancelProcessing}>
             Cancel

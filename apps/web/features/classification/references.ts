@@ -19,12 +19,14 @@ import type { LayoutBlock } from '@/features/extraction/types';
 const HEADING_PATTERNS: { type: RegionType; regex: RegExp; label: string }[] = [
   {
     type: 'reference',
-    regex: /^(?:\d+\.?\s*|[ivxlcdm]+\.?\s*)?(references|reference list|works cited|literature cited|citations)\s*:?$/i,
+    regex:
+      /^(?:\d+\.?\s*|[ivxlcdm]+\.?\s*)?(references|reference list|works cited|literature cited|citations)\s*:?$/i,
     label: 'references heading',
   },
   {
     type: 'bibliography',
-    regex: /^(?:\d+\.?\s*|[ivxlcdm]+\.?\s*)?(bibliography|selected bibliography|further reading|suggested reading)\s*:?$/i,
+    regex:
+      /^(?:\d+\.?\s*|[ivxlcdm]+\.?\s*)?(bibliography|selected bibliography|further reading|suggested reading)\s*:?$/i,
     label: 'bibliography heading',
   },
   {
@@ -38,15 +40,27 @@ const HEADING_PATTERNS: { type: RegionType; regex: RegExp; label: string }[] = [
 const ENTRY_SIGNALS: { name: string; regex: RegExp }[] = [
   { name: 'a year in parentheses', regex: /\(\s*(?:19|20)\d{2}[a-z]?\s*\)/ },
   { name: 'a DOI', regex: /\b(?:doi:\s*)?10\.\d{4,9}\/\S+/i },
-  { name: 'a volume(issue), pages pattern', regex: /\b\d{1,4}\s*\(\s*\d{1,3}\s*\)\s*,?\s*\d{1,5}\s*[-–]\s*\d{1,5}/ },
+  {
+    name: 'a volume(issue), pages pattern',
+    regex: /\b\d{1,4}\s*\(\s*\d{1,3}\s*\)\s*,?\s*\d{1,5}\s*[-–]\s*\d{1,5}/,
+  },
   { name: 'a page range', regex: /\bpp?\.\s*\d{1,5}\s*[-–]\s*\d{1,5}/i },
-  { name: 'an "Author, A." name form', regex: /\b\p{Lu}\p{Ll}+,\s+\p{Lu}\.(?:\s*\p{Lu}\.)?/u },
-  { name: 'an editor or edition marker', regex: /\b(eds?\.|vol\.|no\.|edition|in press|retrieved from)\b/i },
+  {
+    name: 'an "Author, A." name form',
+    regex: /\b\p{Lu}\p{Ll}+,\s+\p{Lu}\.(?:\s*\p{Lu}\.)?/u,
+  },
+  {
+    name: 'an editor or edition marker',
+    regex: /\b(eds?\.|vol\.|no\.|edition|in press|retrieved from)\b/i,
+  },
   { name: 'a bracketed entry number', regex: /^\s*\[\d{1,3}\]\s/ },
 ];
 
 /** 0..1 score for how much a block looks like a bibliography entry. */
-export function referenceEntryScore(text: string): { score: number; matched: string[] } {
+export function referenceEntryScore(text: string): {
+  score: number;
+  matched: string[];
+} {
   const matched = ENTRY_SIGNALS.filter((signal) => signal.regex.test(text)).map((s) => s.name);
   return { score: Math.min(1, matched.length / 3), matched };
 }
@@ -102,7 +116,10 @@ export function detectReferenceSections(
 
   for (const entry of ordered) {
     const { block } = entry;
-    const text = block.lines.map((line) => line.text).join(' ').trim();
+    const text = block.lines
+      .map((line) => line.text)
+      .join(' ')
+      .trim();
     const blockFontSize = block.lines[0]?.fontSize ?? bodyFontSize;
 
     const heading = matchReferenceHeading(text);
@@ -122,7 +139,9 @@ export function detectReferenceSections(
     if (activeType) {
       // A new heading of comparable prominence ends the section.
       const isNewHeading =
-        block.type === 'heading' && blockFontSize >= headingFontSize - 0.5 && !matchReferenceHeading(text);
+        block.type === 'heading' &&
+        blockFontSize >= headingFontSize - 0.5 &&
+        !matchReferenceHeading(text);
       if (isNewHeading) {
         activeType = null;
         activeLabel = '';
@@ -146,7 +165,9 @@ export function detectReferenceSections(
   let run: OrderedBlock[] = [];
   const flushRun = (): void => {
     if (run.length >= 3) {
-      const scores = run.map((entry) => referenceEntryScore(entry.block.lines.map((l) => l.text).join(' ')));
+      const scores = run.map((entry) =>
+        referenceEntryScore(entry.block.lines.map((l) => l.text).join(' ')),
+      );
       const mean = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;
       const hanging = hasHangingIndent(run.map((entry) => entry.block));
       if (mean >= 0.6) {

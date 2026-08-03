@@ -59,7 +59,7 @@ export function normalizeItemText(text: string, sourceTextItemId: string): Norma
   const transformations: TransformationRecord[] = [];
   let out = '';
 
-  for (let i = 0; i < text.length; ) {
+  for (let i = 0; i < text.length;) {
     const ch = text[i];
     const expansion = LIGATURES[ch];
     if (expansion) {
@@ -89,27 +89,32 @@ export function normalizeItemText(text: string, sourceTextItemId: string): Norma
     return '';
   });
 
-  const withoutInvisible = withoutSoftHyphen.replace(INVISIBLE_CHARS, '').replace(CONTROL_CHARS, (match, offset: number) => {
-    transformations.push({
-      kind: 'control-char-removal',
-      offset,
-      before: match,
-      after: '',
-      sourceTextItemIds: [sourceTextItemId],
+  const withoutInvisible = withoutSoftHyphen
+    .replace(INVISIBLE_CHARS, '')
+    .replace(CONTROL_CHARS, (match, offset: number) => {
+      transformations.push({
+        kind: 'control-char-removal',
+        offset,
+        before: match,
+        after: '',
+        sourceTextItemIds: [sourceTextItemId],
+      });
+      return '';
     });
-    return '';
-  });
 
-  const collapsed = withoutInvisible.replace(/[ \t\u00A0\u2000-\u200A\u202F\u205F\u3000]{2,}/g, (match, offset: number) => {
-    transformations.push({
-      kind: 'whitespace-collapse',
-      offset,
-      before: match,
-      after: ' ',
-      sourceTextItemIds: [sourceTextItemId],
-    });
-    return ' ';
-  });
+  const collapsed = withoutInvisible.replace(
+    /[ \t\u00A0\u2000-\u200A\u202F\u205F\u3000]{2,}/g,
+    (match, offset: number) => {
+      transformations.push({
+        kind: 'whitespace-collapse',
+        offset,
+        before: match,
+        after: ' ',
+        sourceTextItemIds: [sourceTextItemId],
+      });
+      return ' ';
+    },
+  );
 
   // Single non-breaking / exotic spaces still normalize to U+0020 so that
   // sentence segmentation and word splitting behave consistently. This is a
@@ -178,7 +183,13 @@ export function joinWrappedLines(lines: WrappedLine[]): JoinedLines {
 
   /** Re-bases a line's own spans onto the joined text, clipping to `limit`. */
   const emitSpans = (line: WrappedLine, base: number, limit: number): void => {
-    const lineSpans = line.spans ?? [{ start: 0, end: line.text.length, itemId: line.sourceTextItemIds[0] ?? '' }];
+    const lineSpans = line.spans ?? [
+      {
+        start: 0,
+        end: line.text.length,
+        itemId: line.sourceTextItemIds[0] ?? '',
+      },
+    ];
     for (const span of lineSpans) {
       if (span.itemId === '') continue;
       const start = base + span.start;

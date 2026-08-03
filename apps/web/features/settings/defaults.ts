@@ -20,11 +20,8 @@ export const DEFAULT_SETTINGS: DocumentSettings = {
     volume: 1,
   },
   tables: { mode: 'skip' },
-  equations: { mode: 'skip' },
-  images: { readAltText: true, readCaptions: true, allowGeneratedDescriptions: false },
   regionOverrides: {},
   ocrConsent: false,
-  ttsConsent: false,
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 32, step: 1 };
@@ -43,8 +40,6 @@ export function mergeSettings(stored: Partial<DocumentSettings> | undefined): Do
     reader: { ...DEFAULT_SETTINGS.reader, ...stored.reader },
     playback: { ...DEFAULT_SETTINGS.playback, ...stored.playback },
     tables: { ...DEFAULT_SETTINGS.tables, ...stored.tables },
-    equations: { ...DEFAULT_SETTINGS.equations, ...stored.equations },
-    images: { ...DEFAULT_SETTINGS.images, ...stored.images },
     regionOverrides: { ...stored.regionOverrides },
   };
 }
