@@ -97,6 +97,15 @@ export interface TTSChunk {
   /** Full cache key: provider + voice + speed + language + textHash. */
   cacheKey: string;
   index: number;
+  /**
+   * True when this chunk continues the previous one WITHOUT a word break,
+   * because a single word exceeded the provider's character limit. Concatenating
+   * chunk texts must not insert a space at such a boundary.
+   *
+   * Mid-word splits are audible; they only happen for words longer than the
+   * provider limit, which in practice means malformed text-layer output.
+   */
+  continuesMidWord?: boolean;
 }
 
 export type ProviderErrorCode =
