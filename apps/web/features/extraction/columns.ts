@@ -21,6 +21,16 @@ const MAX_CROSSING_ROW_SHARE = 0.2;
 const MIN_TWO_SIDED_ROWS = 3;
 /** A column band narrower than this share of the content width is implausible. */
 const MIN_BAND_WIDTH_SHARE = 0.2;
+/**
+ * Share of narrow items that may still fall inside a gutter for it to count.
+ *
+ * Requiring a gutter to be COMPLETELY empty fails on real documents: one
+ * centred byline, rule or inline figure crossing the corridor is enough to
+ * erase it, and the page is then read straight across both columns. A gutter is
+ * a low-density corridor, not necessarily an empty one; the vertical-continuity
+ * check below is what rejects false corridors.
+ */
+const GUTTER_COVERAGE_SHARE = 0.02;
 
 interface Interval {
   start: number;
@@ -155,11 +165,14 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
     for (let bin = from; bin <= to; bin += 1) coverage[bin] += 1;
   }
 
-  // Collect interior runs of empty bins.
+  // Collect interior runs of low-density bins.
+  // At least one: a single centred byline must not be able to erase a gutter,
+  // however few items the page has.
+  const coverageTolerance = Math.max(1, Math.floor(narrow.length * GUTTER_COVERAGE_SHARE));
   const gutters: Interval[] = [];
   let runStart: number | null = null;
   for (let bin = 0; bin < binCount; bin += 1) {
-    if (coverage[bin] === 0) {
+    if (coverage[bin] <= coverageTolerance) {
       if (runStart === null) runStart = bin;
     } else if (runStart !== null) {
       gutters.push({ start: runStart, end: bin });

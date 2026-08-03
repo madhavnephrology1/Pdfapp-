@@ -8,11 +8,15 @@ import {
   scannedPdf,
   singlePagePdf,
   tablePdf,
+  realisticPaperPdf,
   twoColumnPaperPdf,
   typographyPdf,
 } from '@pdfreader/test-fixtures';
-import { applyReadingMode } from '@/features/classification/modes';
-import { DEFAULT_CATEGORY_SETTINGS } from '@/features/classification/modes';
+import {
+  applyReadingMode,
+  DEFAULT_CATEGORY_SETTINGS,
+  summarizeExclusions,
+} from '@/features/classification/modes';
 import type { ExtractionResult } from '@/features/extraction/pipeline';
 import { extractFixture, spokenText } from '../helpers/extract-fixture';
 
@@ -288,5 +292,69 @@ describe('front matter', () => {
     const result = await extractFixture(frontMatterPdf());
     const pageNumbers = result.regions.filter((region) => region.type === 'page-number');
     expect(pageNumbers.map((p) => p.text)).toEqual(expect.arrayContaining(['i', 'ii', 'iii']));
+  });
+});
+
+describe('conditions created by real PDF producers', () => {
+  let result: ExtractionResult;
+  beforeAll(async () => {
+    result = await extractFixture(realisticPaperPdf());
+  });
+
+  it('detects headings that are only 1.1x body size and share the body font', () => {
+    // Real PDFs embed subset fonts whose names carry no "Bold", so size and
+    // structure are the only signals available.
+    const headings = result.regions.filter((region) => region.type === 'heading');
+    const titles = headings.map((h) => h.text);
+    for (const expected of ['1. Introduction', '2. Methods', '3. Results', '4. Discussion']) {
+      expect(titles, `missing heading ${expected}`).toContain(expected);
+    }
+  });
+
+  it('does not mistake a numbered heading for a list item', () => {
+    const intro = result.regions.find((region) => region.text === '1. Introduction');
+    expect(intro).toBeDefined();
+    expect(intro!.type).toBe('heading');
+  });
+
+  it('finds the column gutter even though a centred byline crosses it', () => {
+    expect(result.pages[0].columnCount).toBe(2);
+  });
+
+  it('reads each column in order rather than straight across the page', () => {
+    const text = spokenText(result, includedIds(result));
+    const methods = text.indexOf('Micropuncture was performed');
+    const results = text.indexOf('Fractional excretion of sodium');
+    expect(methods).toBeGreaterThan(-1);
+    expect(results).toBeGreaterThan(-1);
+    expect(methods).toBeLessThan(results);
+  });
+
+  it('contains the reference section instead of swallowing the rest of the document', () => {
+    const discussion = result.regions.find((region) =>
+      region.text.startsWith('These findings are consistent'),
+    );
+    expect(discussion).toBeDefined();
+    expect(discussion!.type).not.toBe('reference');
+
+    const text = spokenText(result, includedIds(result));
+    expect(text).toContain('These findings are consistent with earlier reports');
+    expect(text).toContain('Proximal transport determines');
+  });
+
+  it('separates a page number from a footer on a different baseline', () => {
+    const pageNumbers = result.regions.filter((region) => region.type === 'page-number');
+    expect(pageNumbers.map((p) => p.text)).toEqual(expect.arrayContaining(['1 of 2', '2 of 2']));
+    const footers = result.regions.filter((region) => region.type === 'footer');
+    expect(footers.every((f) => !f.text.includes('of 2'))).toBe(true);
+  });
+
+  it('reads the overwhelming majority of the body text', () => {
+    // The regression this guards: a runaway reference section once dropped
+    // nearly 90% of a document's words without saying so.
+    const applied = applyReadingMode(result.regions, 'clean', DEFAULT_CATEGORY_SETTINGS);
+    const summary = summarizeExclusions(applied);
+    const skippedShare = summary.excludedWords / (summary.includedWords + summary.excludedWords);
+    expect(skippedShare).toBeLessThan(0.35);
   });
 });

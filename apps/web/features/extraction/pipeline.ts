@@ -89,11 +89,27 @@ export function extractDocument(
     // smaller face must not make ordinary body text elsewhere look oversized.
     const pageBodyFontSize =
       page.lines.length >= 4 ? estimateBodyFontSize(page.lines) : bodyFontSize;
+    // The dominant face and the column width on this page, for heading
+    // detection that cannot rely on opaque subset font names.
+    const faceWeights = new Map<string, number>();
+    for (const line of page.lines) {
+      if (!line.fontName) continue;
+      faceWeights.set(line.fontName, (faceWeights.get(line.fontName) ?? 0) + line.text.length);
+    }
+    const bodyFontName = [...faceWeights.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const columnWidth =
+      page.columns.columns.length > 0
+        ? Math.max(...page.columns.columns.map((column) => column.end - column.start))
+        : page.input.width;
+
     const grouped = groupBlocks(ordered, {
       documentId,
       pageNumber: page.input.pageNumber,
       pageHeight: page.input.height,
+      pageWidth: page.input.width,
       bodyFontSize: pageBodyFontSize || bodyFontSize,
+      columnWidth,
+      bodyFontName,
     });
     const { blocks, rowsByBlock } = detectTables(grouped);
     for (const [blockId, rows] of rowsByBlock) tableRows.set(blockId, rows);
