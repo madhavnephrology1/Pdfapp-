@@ -4,8 +4,8 @@ name: Deploy to GitHub Pages
 # the browser's own voices and text recognition is unavailable — see
 # LIMITATIONS.md. The full application is the Docker compose stack.
 #
-# This requires the repository to be public (or a GitHub plan that allows Pages
-# on a private repository), and Settings → Pages → Source set to "GitHub Actions".
+# This requires the repository to be public, or a GitHub plan that allows Pages
+# on a private repository. Pages itself is switched on by the workflow.
 
 on:
   push:
@@ -41,6 +41,10 @@ jobs:
 
       - uses: actions/configure-pages@v5
         id: pages
+        with:
+          # Turns Pages on for the repository if it is not already on, so the
+          # only manual step left is making the repository public.
+          enablement: true
 
       - name: Build
         env:
