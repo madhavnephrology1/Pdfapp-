@@ -9,7 +9,12 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # Both, because this repository's DEFAULT branch is the feature branch, not
+    # main — and GitHub's `github-pages` environment only accepts deployments
+    # from the default branch. A build triggered from main passes and is then
+    # rejected at the deployment gate. Setting the default branch to main would
+    # let this be `[main]` alone.
+    branches: [main, claude/pdf-read-aloud-app-2r76ud]
   workflow_dispatch:
 
 # Only one deployment at a time, and let a newer one supersede a queued one
