@@ -19,6 +19,7 @@ export function ReaderPanel() {
     useDocumentStore();
   const rawItems = useDocumentStore((state) => state.rawItems);
   const pages = useDocumentStore((state) => state.pages);
+  const progress = useDocumentStore((state) => state.progress);
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -84,9 +85,34 @@ export function ReaderPanel() {
     // this application and should be reported as one rather than blamed on the
     // document.
     const scanned = pages.filter((page) => page.likelyScanned).length;
+    const failed = progress.failedPages;
+
+    // Pages that could not be read at all were reported only in the navigation
+    // panel, which is a drawer on a narrow screen. A reader on a phone was
+    // therefore told the document had no text when in fact every page had
+    // failed and the reason was sitting behind a button they had no cause to
+    // press. A failure this total belongs where the text would have been.
+    if (failed.length > 0 && failed.length >= pages.length) {
+      return (
+        <div className={styles.empty}>
+          <p>This document could not be read.</p>
+          <p className="hint">
+            All {failed.length} page(s) failed. The first said: “{failed[0].reason}”. No text has
+            been guessed at to fill the gap.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.empty}>
         <p>No readable text was found in this document.</p>
+        {failed.length > 0 && (
+          <p className="hint">
+            {failed.length} of {pages.length + failed.length} page(s) could not be read at all (page{' '}
+            {failed[0].pageNumber}: “{failed[0].reason}”).
+          </p>
+        )}
         {rawItems.length === 0 ? (
           <p className="hint">
             The PDF returned no text at all across {pages.length || totalPages} page(s)

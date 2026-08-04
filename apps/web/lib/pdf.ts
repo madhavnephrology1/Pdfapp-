@@ -9,7 +9,18 @@ import { asset } from './base-path';
  * that a user opened a document.
  */
 
-export const PDF_WORKER_SRC = asset('/pdf.worker.min.mjs');
+/**
+ * The PDF.js worker, addressed through the bundler rather than by hand.
+ *
+ * It used to be a hand-placed copy in /public referenced by an absolute path.
+ * That made the URL depend on the deployment's base path AND on the host
+ * serving a `.mjs` file with a JavaScript media type — a module worker is
+ * refused outright if the type is wrong, and hosts differ on `.mjs`. Letting
+ * the bundler emit the file removes both: it fingerprints the asset, applies
+ * the base path itself, and serves it as ordinary JavaScript.
+ */
+export const PDF_WORKER_SRC = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url)
+  .href;
 
 type PdfjsModule = typeof import('pdfjs-dist');
 
