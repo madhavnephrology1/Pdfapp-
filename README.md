@@ -19,6 +19,7 @@ exclusion is listed, explained, and reversible.
 - [Development commands](#development-commands)
 - [Testing commands](#testing-commands)
 - [Docker](#docker)
+- [GitHub Pages (a phone-friendly link)](#github-pages-a-phone-friendly-link)
 - [Provider configuration](#provider-configuration)
 - [How the reader decides what to read](#how-the-reader-decides-what-to-read)
 - [Privacy behaviour](#privacy-behaviour)
@@ -206,6 +207,46 @@ than expected, or native-module errors at runtime, check that `.dockerignore` is
 present: without it the host's `node_modules` overwrites the one installed
 inside the image, which breaks as soon as the host and image platforms differ —
 an Apple Silicon Mac building a `linux/amd64` image, for instance.
+
+---
+
+## GitHub Pages (a phone-friendly link)
+
+The web app runs entirely in the browser, so it can be published as a folder of
+static files with no server behind it. `.github/workflows/pages.yml` does that on
+every push to `main`.
+
+Requirements, both one-time:
+
+1. The repository must be **public** (GitHub Pages on a private repository needs
+   a paid plan).
+2. **Settings → Pages → Source: GitHub Actions.**
+
+The result is `https://<user>.github.io/<repo>/`, which opens on a phone as
+readily as a desktop — the layout collapses to a single reading column below
+860px and the navigation becomes a drawer.
+
+**What that build cannot do,** because there is no API behind it:
+
+- Speech uses the **browser's own voices**, not a natural-voice provider. On iOS
+  and macOS Safari those are the system voices; the interface says which engine
+  it is using.
+- **Text recognition is unavailable**, so scanned pages stay unreadable.
+- A static host cannot send HTTP headers, so the Content-Security-Policy moves
+  to a `<meta>` tag and `frame-ancestors`, `X-Frame-Options` and
+  `X-Content-Type-Options` are **lost**. The Next server build, including the
+  Docker image, still sets all of them properly. This is a real reduction and it
+  is the price of a host that runs no server.
+
+To produce the same build locally:
+
+```bash
+STATIC_EXPORT=true NEXT_PUBLIC_STATIC_EXPORT=true \
+  NEXT_PUBLIC_BASE_PATH=/your-repo-name npm run build
+# then serve apps/web/out from a directory of that name
+```
+
+Leave those variables unset and the build is an ordinary Next server, unchanged.
 
 ---
 

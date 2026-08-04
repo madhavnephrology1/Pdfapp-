@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { asset } from './base-path';
 
 /**
  * PDF.js setup for the browser.
@@ -8,7 +9,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
  * that a user opened a document.
  */
 
-export const PDF_WORKER_SRC = '/pdf.worker.min.mjs';
+export const PDF_WORKER_SRC = asset('/pdf.worker.min.mjs');
 
 type PdfjsModule = typeof import('pdfjs-dist');
 
@@ -71,8 +72,8 @@ export async function openPdf({ data, password }: OpenPdfOptions): Promise<Opene
     // and font/CMap data served only from this origin.
     useSystemFonts: false,
     // Rendering still needs standard font metrics; served from our own origin.
-    standardFontDataUrl: '/pdf-standard-fonts/',
-    cMapUrl: '/pdf-cmaps/',
+    standardFontDataUrl: asset('/pdf-standard-fonts/'),
+    cMapUrl: asset('/pdf-cmaps/'),
     cMapPacked: true,
     verbosity: 0,
   });

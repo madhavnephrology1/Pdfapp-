@@ -18,6 +18,33 @@ export const viewport: Viewport = {
 };
 
 /**
+ * On a static host there is no server to send a Content-Security-Policy header,
+ * so the policy is carried in a <meta> tag instead. This is genuinely weaker
+ * and the difference is not hidden: `frame-ancestors` is ignored in a meta
+ * policy, and X-Frame-Options and X-Content-Type-Options cannot be expressed
+ * here at all. A build served by the Next server sets all of them as real
+ * headers and does not emit this tag.
+ *
+ * There is no API in a static build, so `connect-src` allows only this origin.
+ */
+const STATIC_CSP =
+  process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true'
+    ? [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "font-src 'self' data:",
+        "media-src 'self' blob: data:",
+        "connect-src 'self' blob:",
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join('; ')
+    : null;
+
+/**
  * Applies the stored theme before first paint so the page never flashes the
  * wrong colours. It reads only this app's own preference key.
  */
@@ -39,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
+        {STATIC_CSP && <meta httpEquiv="Content-Security-Policy" content={STATIC_CSP} />}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
       <body>{children}</body>

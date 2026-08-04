@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { partialMilestones } from '@/features/extraction/milestones';
+import { asset } from '@/lib/base-path';
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
 import { PdfLoadError, toPdfLoadError } from '@/lib/pdf';
 import type { ExtractionPayload, WorkerRequest, WorkerResponse } from './protocol';
@@ -107,7 +108,7 @@ async function runExtraction(
     // that do not fall back to a same-thread "fake worker", which is still off
     // the UI thread because we are already inside a worker.
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      '/pdf.worker.min.mjs',
+      asset('/pdf.worker.min.mjs'),
       scope.location.origin,
     ).href;
 
@@ -116,8 +117,8 @@ async function runExtraction(
       password,
       // PDF.js 6 no longer uses eval; only font fetching needs restricting.
       useSystemFonts: false,
-      standardFontDataUrl: '/pdf-standard-fonts/',
-      cMapUrl: '/pdf-cmaps/',
+      standardFontDataUrl: asset('/pdf-standard-fonts/'),
+      cMapUrl: asset('/pdf-cmaps/'),
       cMapPacked: true,
       verbosity: 0,
     });

@@ -1,0 +1,76 @@
+name: Deploy to GitHub Pages
+
+# A static build of the web app only. There is no API behind it, so speech uses
+# the browser's own voices and text recognition is unavailable — see
+# LIMITATIONS.md. The full application is the Docker compose stack.
+#
+# This requires the repository to be public (or a GitHub plan that allows Pages
+# on a private repository), and Settings → Pages → Source set to "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one deployment at a time, and let a newer one supersede a queued one
+# rather than cancelling a deployment already in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build the static site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
+      - uses: actions/configure-pages@v5
+        id: pages
+
+      - name: Build
+        env:
+          STATIC_EXPORT: 'true'
+          NEXT_PUBLIC_STATIC_EXPORT: 'true'
+          # A project page is served from /<repo>/, so every asset needs that
+          # prefix. Taken from the repository name rather than hardcoded.
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # No API is deployed with this build. An empty base makes the health
+          # and voice probes hit this origin, 404, and fall back to browser
+          # speech — which is what the interface then reports.
+          NEXT_PUBLIC_API_BASE_URL: ''
+        run: npm run build
+
+      - name: Stop Jekyll from eating the _next directory
+        # GitHub Pages runs Jekyll by default, which ignores any path beginning
+        # with an underscore. Without this file every Next.js asset 404s.
+        run: touch apps/web/out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/out
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
