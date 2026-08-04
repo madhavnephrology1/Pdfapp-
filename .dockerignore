@@ -1,0 +1,68 @@
+# What must NOT reach the Docker build context.
+#
+# `docker/web.Dockerfile` does `COPY . .` after copying an already-installed
+# node_modules from its `deps` stage. Without this file three things go wrong:
+#
+#   1. `.env` is copied into the image. The API receives its configuration at
+#      RUNTIME through compose's `env_file`, so a credential in the image is
+#      pure downside: it survives in the layer and can be read back out of the
+#      image by anyone who has it.
+#   2. The host's node_modules overwrites the one installed inside the image.
+#      Those were built for the host's platform, so an image built on an Apple
+#      Silicon Mac for linux/amd64 ends up with the wrong native binaries.
+#   3. The whole repository — node_modules, .git, the Python virtualenv — is
+#      uploaded to the daemon on every build.
+#
+# Anything the build genuinely needs must stay OUT of this list: the workspace
+# manifests, apps/web, apps/api/app, packages/, and scripts/, which the web
+# build runs through its `prebuild` step to copy the PDF.js assets.
+
+# Credentials. Never in an image.
+.env
+.env.*
+!.env.example
+
+# Installed dependencies: both images install their own.
+node_modules
+**/node_modules
+.venv
+**/.venv
+venv
+
+# Build output: the image builds its own.
+.next
+**/.next
+out
+**/out
+*.tsbuildinfo
+
+# Version control and CI.
+.git
+.gitignore
+.github
+
+# Python build and cache artefacts.
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+**/*.egg-info
+.pytest_cache
+.ruff_cache
+
+# Test output and generated fixtures.
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+coverage
+**/coverage
+**/tests/e2e/.generated
+
+# The API's runtime temporary directory. In compose this is a tmpfs mount.
+apps/api/tmp
+
+# Editor and OS noise.
+.vscode
+.idea
+.DS_Store

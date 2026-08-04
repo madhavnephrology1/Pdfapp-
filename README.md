@@ -164,17 +164,32 @@ in this repository. Run `npm run fixtures` to write them to disk for inspection.
 
 ## Docker
 
+This is the shortest path to the complete application — both halves, natural
+voices if you configure them, nothing to install but Docker.
+
 ```bash
 cp .env.example .env      # set TTS_PROVIDER and TTS_API_KEY if you have one
 docker compose up --build
 ```
 
 The web app is on <http://localhost:3000>, the API on <http://localhost:8000>.
+The first build takes a few minutes; later ones reuse the dependency layers.
+
+With `.env` left as it ships, no speech provider is configured and the app uses
+your browser's own voices, saying so in the interface. Nothing leaves the machine
+in that mode. Set `TTS_PROVIDER` and `TTS_API_KEY` for natural voices; only the
+passage being spoken is sent, and only through this app's own API, which holds
+the credential.
 
 Both images run as a non-root user. The API's temporary directory is a `tmpfs`
 mount, so temporary files live in RAM and never reach a persistent volume. There
 is no database and no volume: nothing derived from a user's document is
 persisted server-side.
+
+**`.env` is deliberately excluded from the build context** (see `.dockerignore`).
+The API receives its configuration at runtime through compose's `env_file`, so a
+credential never needs to enter an image — and must not, because an image layer
+keeps it and hands it to anyone who has the image.
 
 `NEXT_PUBLIC_API_BASE_URL` is compiled into the browser bundle, so change it as
 a build argument, not at runtime:
@@ -182,6 +197,15 @@ a build argument, not at runtime:
 ```bash
 NEXT_PUBLIC_API_BASE_URL=https://api.example.com docker compose up --build
 ```
+
+### If the build behaves oddly
+
+Docker sends the whole working directory to the daemon unless `.dockerignore`
+excludes it. If you see a build that is enormously slow, an image far larger
+than expected, or native-module errors at runtime, check that `.dockerignore` is
+present: without it the host's `node_modules` overwrites the one installed
+inside the image, which breaks as soon as the host and image platforms differ —
+an Apple Silicon Mac building a `linux/amd64` image, for instance.
 
 ---
 
