@@ -15,7 +15,8 @@ import styles from './ReaderPanel.module.css';
 const HEADING_TYPES = new Set(['heading']);
 
 export function ReaderPanel() {
-  const { regions, sentences, settings, queue, ocrPages } = useDocumentStore();
+  const { regions, sentences, settings, queue, ocrPages, analyzing, pagesAnalyzed, totalPages } =
+    useDocumentStore();
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -57,6 +58,23 @@ export function ReaderPanel() {
   );
 
   if (paragraphs.length === 0) {
+    // "Nothing to read" is a CONCLUSION, and it must not be stated before the
+    // document has actually been read. While pages are still being analysed the
+    // panel is empty because the answer is not in yet, which is a different
+    // thing entirely and is said differently.
+    if (analyzing) {
+      return (
+        <div className={styles.empty}>
+          <p>Reading the document…</p>
+          <p className="hint">
+            {totalPages > 0
+              ? `${pagesAnalyzed} of ${totalPages} pages analysed. Text appears here as soon as the first pages are ready.`
+              : 'Text appears here as soon as the first pages are ready.'}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.empty}>
         <p>No readable text was found in this document.</p>
