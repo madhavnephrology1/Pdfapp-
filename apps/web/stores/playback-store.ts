@@ -645,9 +645,12 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
     },
 
     async play() {
+      if (get().queueSentences.length === 0) return;
+      // A playback error is recoverable and its message says to press play
+      // again — so pressing play has to actually try again. Returning early
+      // here would leave a control that cannot do what it tells you to.
+      if (get().state === 'error') dispatch({ type: 'CLEAR_ERROR' });
       const state = get();
-      if (state.state === 'error') return;
-      if (state.queueSentences.length === 0) return;
 
       if (state.providerName === BROWSER_PROVIDER) {
         if (state.state === 'paused' && browserHandle) {

@@ -146,6 +146,30 @@ describe('rebuilding the reading queue', () => {
     expect(after.activeSentenceId).toBe('c:s1');
   });
 
+  it('lets play retry after a playback error, because the error says to', () => {
+    // "Press play again to allow audio in this browser" has to be followed
+    // through: a control whose own message cannot be acted on is a dead one.
+    usePlaybackStore.getState().prepareQueue(queueOf(PAGE_TEXT, 'a:'), 'd');
+    const stale = 'Playback could not start. Press play again to allow audio in this browser.';
+    usePlaybackStore.setState({ state: 'error', error: stale, providerName: 'browser' });
+
+    void usePlaybackStore.getState().play();
+
+    // There is no speech engine under the test runner, so the retry fails —
+    // but it FAILS, which means it was attempted. The stale message is gone.
+    const after = usePlaybackStore.getState();
+    expect(after.error).not.toBe(stale);
+    expect(after.error).toContain('no built-in speech engine');
+  });
+
+  it('does nothing on play when there is nothing to read', () => {
+    usePlaybackStore.setState({ state: 'error', error: 'Something went wrong' });
+    void usePlaybackStore.getState().play();
+    // No queue means no retry to make, so the error stands rather than being
+    // quietly cleared.
+    expect(usePlaybackStore.getState().error).toBe('Something went wrong');
+  });
+
   it('goes idle when a rebuilt queue has nothing left to read', () => {
     const { prepareQueue } = usePlaybackStore.getState();
     prepareQueue(queueOf(PAGE_TEXT, 'a:'), 'd');

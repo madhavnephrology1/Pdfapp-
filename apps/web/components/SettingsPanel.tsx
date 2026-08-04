@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { ReaderTheme } from '@pdfreader/shared-types';
-import { FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, TEXT_WIDTH_RANGE } from '@/features/settings/defaults';
+import { DEFAULT_OCR_RENDER_SCALE } from '@/features/ocr/render';
+import {
+  FONT_SIZE_RANGE,
+  LINE_HEIGHT_RANGE,
+  OCR_RENDER_SCALE_OPTIONS,
+  TEXT_WIDTH_RANGE,
+} from '@/features/settings/defaults';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAllStoredData, estimateStorageUsage } from '@/lib/persistence';
 import { clearServerAudioCache, fetchHealth, type ServerHealth } from '@/lib/tts-client';
@@ -248,11 +254,48 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               </p>
             )}
 
-            <p className={styles.privacyFact}>
-              Sending scanned pages for text recognition is not available in the interface yet, so
-              no page image is sent anywhere. Scanned pages are reported as having no readable text
-              rather than guessed at.
-            </p>
+            {health?.ocrProvider ? (
+              <div className={styles.field}>
+                <label className={styles.checkbox}>
+                  <input
+                    type="checkbox"
+                    checked={settings.ocrConsent}
+                    onChange={(event) => setSettings({ ocrConsent: event.target.checked })}
+                  />
+                  Send images of scanned pages to “{health.ocrProvider}” for text recognition
+                </label>
+                <p className={styles.privacyFact}>
+                  Off by default, and nothing is sent until you ask for a specific page in the Text
+                  recognition panel. Recognised text is shown to you with uncertain words marked
+                  before it becomes part of the reading text, and it is never mixed in with the
+                  document&rsquo;s own text without being labelled.
+                </p>
+
+                <label className="field-label" htmlFor="ocr-scale">
+                  Page image detail
+                </label>
+                <select
+                  id="ocr-scale"
+                  className={styles.select}
+                  value={settings.ocrRenderScale}
+                  onChange={(event) => setSettings({ ocrRenderScale: Number(event.target.value) })}
+                >
+                  {OCR_RENDER_SCALE_OPTIONS.map((scale) => (
+                    <option key={scale} value={scale}>
+                      {scale}× {scale === DEFAULT_OCR_RENDER_SCALE ? '(recommended)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.privacyFact}>
+                  Higher detail reads small type more reliably and sends a larger image.
+                </p>
+              </div>
+            ) : (
+              <p className={styles.privacyFact}>
+                No text-recognition service is configured, so no page image can be sent anywhere.
+                Scanned pages are reported as having no readable text rather than guessed at.
+              </p>
+            )}
 
             <div className={styles.dangerZone}>
               <button

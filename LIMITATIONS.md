@@ -4,8 +4,8 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **249** unit and integration tests in the web
-app, **88** in the API, and **24** end-to-end tests in Chromium.
+Test counts as of this revision: **282** unit and integration tests in the web
+app, **108** in the API, and **30** end-to-end tests in Chromium.
 
 ---
 
@@ -14,20 +14,6 @@ app, **88** in the API, and **24** end-to-end tests in Chromium.
 These are absent, and there is **no control in the interface that pretends
 otherwise**. Where the specification called for a feature that could not be
 built honestly, the control was removed rather than left inert.
-
-### Optical character recognition
-
-The interface, consent gate, confidence handling, low-confidence marking, error
-normalisation and HTTP route are complete and tested. **Only a mock provider
-ships** — no real vendor adapter exists, and there is no browser-side flow that
-renders a page to an image and calls the endpoint.
-
-Consequence: scanned pages are reported as having no readable text. Nothing is
-guessed. The Settings panel says this plainly instead of offering a switch.
-
-Adding a real provider means writing one adapter in
-`apps/api/app/providers/ocr/` and a client flow that renders the page, asks for
-consent, and posts the image.
 
 ### Equations
 
@@ -142,6 +128,44 @@ assigns it. Endnotes at the end of a document are usually classified as
 Cached audio does not survive an API restart and is not shared between
 instances. This is deliberate — it is derived from a user's private document —
 but it means a restart re-synthesizes, at cost.
+
+### Text recognition for scanned pages
+
+The whole path works: the reader agrees to it in the interface, a page is
+rendered to an image in the browser, sent to this app's API, recognised, and
+returned with per-word confidence; uncertain words are marked and can be
+retyped; the reader adds the page to the reading text, or does not.
+
+What is honest to say about it, and what is not:
+
+- **The Google Vision adapter has never run against the live service.** There is
+  no credential in this repository and no network access in CI. Its tests pin it
+  against the response shapes Google documents — request format, symbol
+  assembly, skewed and zero-origin bounding boxes, missing confidence, per-image
+  errors inside a 200 response, and every HTTP failure mapping. That is real
+  coverage of the adapter's logic and no coverage at all of the assumption that
+  Google's responses look like the documentation. Treat the first live call as
+  untested.
+- The **mock provider** is what the end-to-end tests use. It returns two
+  obviously-fake `[unrecognized]` words at 40% confidence, deliberately: real
+  text in a mock could mask a mistake in the marking or correction path.
+- A recognised page is classified **with only that page in view**, because
+  re-running the pipeline over the whole document would change every region and
+  sentence id — moving the reader's place and discarding their include/exclude
+  decisions. It is the same limitation as the first pass of incremental
+  extraction and is marked the same way.
+- Uncertain words are marked and corrected **in the recognition panel, before
+  the page joins the reading text**. Once it has joined, the marking is at
+  paragraph level ("read from an image of page N by _provider_, with N words
+  still uncertain") rather than on the individual word. Marking individual words
+  inside the flowing reader text would need a character-offset mapping from
+  recognised word to normalised sentence that survives hyphen joins and
+  line-wrap reconstruction, and that does not exist.
+- Only **one page at a time** is recognised, by explicit request. There is no
+  "recognise the whole document" action, deliberately: each page image is a
+  separate disclosure and each costs the deployment money.
+- Recognition results live in memory for the session. They are **not** written to
+  IndexedDB, so reopening the document means recognising again.
 
 ### Fixture realism
 

@@ -1,6 +1,7 @@
 import type { DocumentSettings } from '@pdfreader/shared-types';
 import { DEFAULT_CATEGORY_SETTINGS } from '@/features/classification/modes';
 import { DEFAULT_CITATION_SETTINGS } from '@/features/classification/citations';
+import { DEFAULT_OCR_RENDER_SCALE } from '@/features/ocr/render';
 
 export const DEFAULT_SETTINGS: DocumentSettings = {
   readingMode: 'clean',
@@ -22,7 +23,10 @@ export const DEFAULT_SETTINGS: DocumentSettings = {
   tables: { mode: 'skip' },
   regionOverrides: {},
   ocrConsent: false,
+  ocrRenderScale: DEFAULT_OCR_RENDER_SCALE,
 };
+
+export const OCR_RENDER_SCALE_OPTIONS = [1, 1.5, 2, 3];
 
 export const FONT_SIZE_RANGE = { min: 14, max: 32, step: 1 };
 export const LINE_HEIGHT_RANGE = { min: 1.3, max: 2.4, step: 0.1 };

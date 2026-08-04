@@ -78,6 +78,14 @@
   line-height: 1.45;
 }
 
+.warning p {
+  margin: 0 0 8px;
+}
+
+.warning p:last-child {
+  margin-bottom: 0;
+}
+
 .modes {
   display: grid;
   gap: 8px;

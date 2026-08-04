@@ -27,7 +27,13 @@ const MODES: { value: ReadingMode; label: string; description: string }[] = [
   },
 ];
 
-export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
+export function LeftPanel({
+  onOpenReview,
+  onOpenRecognition,
+}: {
+  onOpenReview: () => void;
+  onOpenRecognition: () => void;
+}) {
   const {
     fileName,
     fileSize,
@@ -43,6 +49,7 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
     totalPages,
     pagesAnalyzed,
     analyzing,
+    ocrPages,
   } = useDocumentStore();
   const seekToSentence = usePlaybackStore((state) => state.seekToSentence);
   const chunkStates = usePlaybackStore((state) => state.chunkStates);
@@ -65,6 +72,7 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
 
   const scannedPages = pages.filter((page) => page.likelyScanned);
   const uncertainPages = pages.filter((page) => page.readingOrderUncertain);
+  const recognizedPages = Object.values(ocrPages).filter((record) => record.accepted).length;
 
   // The page grid covers the whole file, not only the analysed prefix, so the
   // reader can jump ahead in the viewer while analysis is still running.
@@ -118,10 +126,17 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
           </p>
         )}
         {scannedPages.length > 0 && (
-          <p className={styles.warning}>
-            {scannedPages.length} page(s) appear to be scans with no text layer. There is nothing to
-            read on them and no text has been invented.
-          </p>
+          <div className={styles.warning}>
+            <p>
+              {scannedPages.length} page(s) appear to be scans with no text layer.
+              {recognizedPages > 0
+                ? ` ${recognizedPages} of them ${recognizedPages === 1 ? 'has' : 'have'} had text recognised from an image, which is marked wherever it appears. The rest have nothing to read, and no text has been invented for them.`
+                : ' There is nothing to read on them and no text has been invented.'}
+            </p>
+            <button type="button" className="btn btn-sm" onClick={onOpenRecognition}>
+              Text recognition
+            </button>
+          </div>
         )}
         {uncertainPages.length > 0 && (
           <p className={styles.warning}>

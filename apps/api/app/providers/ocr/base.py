@@ -16,6 +16,15 @@ LOW_CONFIDENCE_THRESHOLD = 0.75
 
 @dataclass(frozen=True)
 class OCRWord:
+    """One recognised word, exactly as the provider returned it.
+
+    Coordinates are in the PIXELS OF THE IMAGE THAT WAS SENT, with the origin at
+    its top-left corner — the convention every OCR vendor uses. They are not PDF
+    coordinates, whose origin is the bottom-left and whose unit is the point. The
+    client rendered the image and knows the scale, so it does the conversion;
+    doing it here would mean this layer guessing at a page size it never saw.
+    """
+
     text: str
     confidence: float
     x: float

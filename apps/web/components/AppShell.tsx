@@ -7,6 +7,7 @@ import { useDocumentStore } from '@/stores/document-store';
 import { usePlaybackStore } from '@/stores/playback-store';
 import { ContentReviewPanel } from './ContentReviewPanel';
 import { LeftPanel } from './LeftPanel';
+import { OcrPanel } from './OcrPanel';
 import { PdfViewer } from './PdfViewer';
 import { PlayerBar } from './PlayerBar';
 import { ReaderPanel } from './ReaderPanel';
@@ -37,6 +38,7 @@ export function AppShell() {
 
   const playback = usePlaybackStore();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const positionSaveRef = useRef<number>(0);
@@ -236,7 +238,10 @@ export function AppShell() {
 
       <div className={styles.columns}>
         <div id="document-nav" className={`${styles.left} ${navOpen ? styles.leftOpen : ''}`}>
-          <LeftPanel onOpenReview={() => setReviewOpen(true)} />
+          <LeftPanel
+            onOpenReview={() => setReviewOpen(true)}
+            onOpenRecognition={() => setOcrOpen(true)}
+          />
         </div>
         <div className={styles.center}>
           <PdfViewer />
@@ -249,6 +254,7 @@ export function AppShell() {
       <PlayerBar />
 
       {reviewOpen && <ContentReviewPanel onClose={() => setReviewOpen(false)} />}
+      {ocrOpen && <OcrPanel onClose={() => setOcrOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
