@@ -17,6 +17,8 @@ const HEADING_TYPES = new Set(['heading']);
 export function ReaderPanel() {
   const { regions, sentences, settings, queue, ocrPages, analyzing, pagesAnalyzed, totalPages } =
     useDocumentStore();
+  const rawItems = useDocumentStore((state) => state.rawItems);
+  const pages = useDocumentStore((state) => state.pages);
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -75,13 +77,30 @@ export function ReaderPanel() {
       );
     }
 
+    // Say WHICH of the two very different failures this is. Zero text items
+    // means the PDF gave up nothing — a scan, or a reader that could not open
+    // its text layer here. Items but no regions means the text was read and
+    // this application then failed to make anything of it, which is a bug in
+    // this application and should be reported as one rather than blamed on the
+    // document.
+    const scanned = pages.filter((page) => page.likelyScanned).length;
     return (
       <div className={styles.empty}>
         <p>No readable text was found in this document.</p>
-        <p className="hint">
-          If the pages are scans, there is no text layer to read. This reader will not guess at
-          words it cannot extract.
-        </p>
+        {rawItems.length === 0 ? (
+          <p className="hint">
+            The PDF returned no text at all across {pages.length || totalPages} page(s)
+            {scanned > 0 ? `, and ${scanned} of them look like scans` : ''}. If these pages are
+            images, there is no text layer to read, and this reader will not guess at words it
+            cannot extract.
+          </p>
+        ) : (
+          <p className="hint">
+            {rawItems.length.toLocaleString()} pieces of text were read from {pages.length} page(s),
+            but none of them could be turned into readable passages. That is a fault in this reader,
+            not in your document — please report it.
+          </p>
+        )}
       </div>
     );
   }
