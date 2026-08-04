@@ -38,8 +38,8 @@ export interface PageFailureMessage {
   reason: string;
 }
 
-export interface DoneMessage {
-  type: 'done';
+/** Everything the pipeline produces for a set of pages. */
+export interface ExtractionPayload {
   pages: PageRecord[];
   regions: DocumentRegion[];
   paragraphs: ParagraphRecord[];
@@ -61,6 +61,30 @@ export interface DoneMessage {
   bodyFontSize: number;
 }
 
+/**
+ * A pass over the pages read so far, sent so reading can begin before the whole
+ * document has been seen.
+ *
+ * Classification of a prefix is genuinely provisional, not merely incomplete:
+ * evidence such as "this line repeats on every page" cannot exist yet, so a
+ * running header will be read aloud until enough pages have been analysed to
+ * recognise it. Each pass replaces the previous one wholesale, and callers must
+ * tell the reader that what is skipped may still change.
+ */
+export interface PartialMessage extends ExtractionPayload {
+  type: 'partial';
+  /** Pages covered by this pass. */
+  pagesAnalyzed: number;
+  pagesTotal: number;
+}
+
+/** The final pass, over every page that could be read. */
+export interface DoneMessage extends ExtractionPayload {
+  type: 'done';
+  pagesAnalyzed: number;
+  pagesTotal: number;
+}
+
 export interface ErrorMessage {
   type: 'error';
   code: string;
@@ -68,4 +92,5 @@ export interface ErrorMessage {
   recovery: string;
 }
 
-export type WorkerResponse = ProgressMessage | PageFailureMessage | DoneMessage | ErrorMessage;
+export type WorkerResponse =
+  ProgressMessage | PageFailureMessage | PartialMessage | DoneMessage | ErrorMessage;

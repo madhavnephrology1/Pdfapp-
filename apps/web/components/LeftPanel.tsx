@@ -27,7 +27,13 @@ const MODES: { value: ReadingMode; label: string; description: string }[] = [
   },
 ];
 
-export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
+export function LeftPanel({
+  onOpenReview,
+  onOpenRecognition,
+}: {
+  onOpenReview: () => void;
+  onOpenRecognition: () => void;
+}) {
   const {
     fileName,
     fileSize,
@@ -40,6 +46,10 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
     currentPage,
     setCurrentPage,
     sentences,
+    totalPages,
+    pagesAnalyzed,
+    analyzing,
+    ocrPages,
   } = useDocumentStore();
   const seekToSentence = usePlaybackStore((state) => state.seekToSentence);
   const chunkStates = usePlaybackStore((state) => state.chunkStates);
@@ -62,6 +72,13 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
 
   const scannedPages = pages.filter((page) => page.likelyScanned);
   const uncertainPages = pages.filter((page) => page.readingOrderUncertain);
+  const recognizedPages = Object.values(ocrPages).filter((record) => record.accepted).length;
+
+  // The page grid covers the whole file, not only the analysed prefix, so the
+  // reader can jump ahead in the viewer while analysis is still running.
+  const pageCount = Math.max(totalPages, pages.length);
+  const analysedPages = new Map(pages.map((page) => [page.pageNumber, page]));
+  const unanalysed = Math.max(0, pageCount - pagesAnalyzed);
 
   return (
     <nav className={styles.panel} aria-label="Document navigation">
@@ -70,8 +87,7 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
           {fileName || 'No document'}
         </h2>
         <p className={styles.meta}>
-          {pages.length} page{pages.length === 1 ? '' : 's'} · {(fileSize / 1_048_576).toFixed(1)}{' '}
-          MB
+          {pageCount} page{pageCount === 1 ? '' : 's'} · {(fileSize / 1_048_576).toFixed(1)} MB
         </p>
 
         <div className={styles.progressBlock} aria-live="polite">
@@ -95,6 +111,13 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
           />
         </div>
 
+        {unanalysed > 0 && (
+          <p className={styles.warning}>
+            {analyzing
+              ? `Classification so far covers the first ${pagesAnalyzed} page(s). It is provisional: which parts are skipped can still change as the remaining ${unanalysed} page(s) are analysed.`
+              : `Only the first ${pagesAnalyzed} page(s) were analysed. The remaining ${unanalysed} page(s) have not been read, and no text from them has been invented.`}
+          </p>
+        )}
         {progress.failedPages.length > 0 && (
           <p className={styles.warning}>
             {progress.failedPages.length} page(s) could not be read:{' '}
@@ -103,10 +126,17 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
           </p>
         )}
         {scannedPages.length > 0 && (
-          <p className={styles.warning}>
-            {scannedPages.length} page(s) appear to be scans with no text layer. There is nothing to
-            read on them and no text has been invented.
-          </p>
+          <div className={styles.warning}>
+            <p>
+              {scannedPages.length} page(s) appear to be scans with no text layer.
+              {recognizedPages > 0
+                ? ` ${recognizedPages} of them ${recognizedPages === 1 ? 'has' : 'have'} had text recognised from an image, which is marked wherever it appears. The rest have nothing to read, and no text has been invented for them.`
+                : ' There is nothing to read on them and no text has been invented.'}
+            </p>
+            <button type="button" className="btn btn-sm" onClick={onOpenRecognition}>
+              Text recognition
+            </button>
+          </div>
         )}
         {uncertainPages.length > 0 && (
           <p className={styles.warning}>
@@ -220,25 +250,30 @@ export function LeftPanel({ onOpenReview }: { onOpenReview: () => void }) {
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Pages</h3>
         <div className={styles.pageGrid}>
-          {pages.map((page) => (
-            <button
-              key={page.pageNumber}
-              type="button"
-              className={`${styles.pageButton} ${
-                page.pageNumber === currentPage ? styles.pageButtonActive : ''
-              }`}
-              onClick={() => setCurrentPage(page.pageNumber)}
-              aria-current={page.pageNumber === currentPage ? 'page' : undefined}
-              title={
-                page.likelyScanned
-                  ? `Page ${page.pageNumber} — appears to be a scan with no text layer`
-                  : `Page ${page.pageNumber}`
-              }
-            >
-              {page.pageNumber}
-              {page.likelyScanned && <span className={styles.scanDot} aria-hidden="true" />}
-            </button>
-          ))}
+          {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => {
+            const page = analysedPages.get(pageNumber);
+            return (
+              <button
+                key={pageNumber}
+                type="button"
+                className={`${styles.pageButton} ${
+                  pageNumber === currentPage ? styles.pageButtonActive : ''
+                }`}
+                onClick={() => setCurrentPage(pageNumber)}
+                aria-current={pageNumber === currentPage ? 'page' : undefined}
+                title={
+                  !page
+                    ? `Page ${pageNumber} — not analysed yet`
+                    : page.likelyScanned
+                      ? `Page ${pageNumber} — appears to be a scan with no text layer`
+                      : `Page ${pageNumber}`
+                }
+              >
+                {pageNumber}
+                {page?.likelyScanned && <span className={styles.scanDot} aria-hidden="true" />}
+              </button>
+            );
+          })}
         </div>
       </section>
     </nav>

@@ -99,7 +99,9 @@ export function PlayerBar() {
             type="button"
             className={`btn btn-icon ${styles.playButton}`}
             onClick={() => (playing ? playback.pause() : void playback.play())}
-            disabled={!hasQueue || state === 'error'}
+            // Enabled in the error state on purpose: a failed start is
+            // retryable, and the error text asks the reader to press play again.
+            disabled={!hasQueue}
             aria-label={playing ? 'Pause' : 'Play'}
             title={playing ? 'Pause (Space)' : 'Play (Space)'}
           >

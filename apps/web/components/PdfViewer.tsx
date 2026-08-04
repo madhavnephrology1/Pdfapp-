@@ -18,7 +18,6 @@ const CURRENT_PAGE_RATIO = 0.5;
 
 export function PdfViewer() {
   const fileBytes = useDocumentStore((state) => state.fileBytes);
-  const pages = useDocumentStore((state) => state.pages);
   const currentPage = useDocumentStore((state) => state.currentPage);
   const setCurrentPage = useDocumentStore((state) => state.setCurrentPage);
   const sentences = useDocumentStore((state) => state.sentences);
@@ -63,6 +62,16 @@ export function PdfViewer() {
       setDoc(null);
     };
   }, [fileBytes]);
+
+  /**
+   * The page list comes from the PDF itself rather than from the extraction
+   * results, so pages can be rendered and scrolled through while their text is
+   * still being analysed.
+   */
+  const pageNumbers = useMemo(
+    () => (doc ? Array.from({ length: doc.numPages }, (_, index) => index + 1) : []),
+    [doc],
+  );
 
   const activeBoxes = useMemo(() => {
     if (!activeSentenceId || !showSourceRegions) return [];
@@ -119,13 +128,13 @@ export function PdfViewer() {
             Previous page
           </button>
           <span className={styles.pageIndicator} aria-live="polite">
-            Page {currentPage} of {pages.length || '—'}
+            Page {currentPage} of {pageNumbers.length || '—'}
           </span>
           <button
             type="button"
             className="btn btn-sm"
             onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage >= pages.length}
+            disabled={currentPage >= pageNumbers.length}
           >
             Next page
           </button>
@@ -161,14 +170,14 @@ export function PdfViewer() {
 
       <div ref={scrollRef} className={styles.scroll}>
         {doc ? (
-          pages.map((page) => (
+          pageNumbers.map((pageNumber) => (
             <PdfPage
-              key={page.pageNumber}
+              key={pageNumber}
               doc={doc}
-              pageNumber={page.pageNumber}
+              pageNumber={pageNumber}
               zoom={zoom}
-              boxes={activeBoxes.filter((box) => box.pageNumber === page.pageNumber)}
-              onVisible={() => setCurrentPage(page.pageNumber)}
+              boxes={activeBoxes.filter((box) => box.pageNumber === pageNumber)}
+              onVisible={reportVisible}
             />
           ))
         ) : (
@@ -184,7 +193,7 @@ interface PdfPageProps {
   pageNumber: number;
   zoom: number;
   boxes: BoundingBox[];
-  onVisible: () => void;
+  onVisible: (pageNumber: number) => void;
 }
 
 /**
@@ -228,14 +237,15 @@ function PdfPage({ doc, pageNumber, zoom, boxes, onVisible }: PdfPageProps) {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting && entry.intersectionRatio >= CURRENT_PAGE_RATIO) onVisible();
+          if (entry.isIntersecting && entry.intersectionRatio >= CURRENT_PAGE_RATIO)
+            onVisible(pageNumber);
         }
       },
       { threshold: [CURRENT_PAGE_RATIO] },
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [onVisible, size]);
+  }, [onVisible, pageNumber, size]);
 
   useEffect(() => {
     if (!visible) return;

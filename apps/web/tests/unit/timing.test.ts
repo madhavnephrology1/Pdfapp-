@@ -44,6 +44,31 @@ describe('sentenceAtTime', () => {
   it('never returns past the end of the chunk', () => {
     expect(sentenceAtTime(chunk, 999, 10)).toBe('s1');
   });
+
+  /**
+   * An audio element reports NaN for duration until its metadata loads, and
+   * Infinity for a stream of unknown length. Both reach here as 0.
+   *
+   * This is a regression test for a real fault: with a duration of 0,
+   * estimateSentenceTimings produced a table where every sentence spanned
+   * [0, 0), no entry could ever match, and the lookup fell through to the LAST
+   * sentence of the chunk. The highlight jumped from the document title to a
+   * footnote at the end of the page the moment playback started on a machine
+   * slow enough for the first frame to beat the metadata.
+   */
+  it('says nothing about position while the duration is unknown', () => {
+    expect(sentenceAtTime(chunk, 0, 0)).toBeNull();
+    expect(sentenceAtTime(chunk, 0, Number.NaN)).toBeNull();
+    expect(sentenceAtTime(chunk, 0, Number.POSITIVE_INFINITY)).toBeNull();
+  });
+
+  it('does not jump to the end of the chunk on a degenerate timing table', () => {
+    const degenerate = estimateSentenceTimings(chunk, 0);
+    expect(degenerate).toEqual([]);
+    expect(sentenceAtTime(chunk, 0, 0, degenerate)).toBeNull();
+    // The specific wrong answer that shipped: the last sentence of the chunk.
+    expect(sentenceAtTime(chunk, 0, 0, degenerate)).not.toBe('s1');
+  });
 });
 
 describe('wordProgress', () => {
@@ -136,6 +161,13 @@ describe('estimateSentenceTimings', () => {
     expect(timings).toHaveLength(2);
     expect(timings[0].audioStart).toBe(0);
     expect(timings[1].audioEnd).toBeCloseTo(10, 5);
+  });
+
+  it('makes no estimate at all without a duration', () => {
+    // A table of zeros would be an answer, and there is no answer to give yet.
+    for (const duration of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(estimateSentenceTimings(chunk, duration)).toEqual([]);
+    }
   });
 });
 

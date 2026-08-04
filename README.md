@@ -82,14 +82,15 @@ end to end.
 All configuration lives in `.env` at the repository root; `.env.example`
 documents every variable. The essentials:
 
-| Variable               | Purpose                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `TTS_PROVIDER`         | `openai`, `elevenlabs`, `azure`, `mock`, or empty for browser-only speech        |
-| `TTS_API_KEY`          | Provider credential. **Server-side only** — never exposed to the browser         |
-| `TTS_REGION`           | Required by the Azure adapter                                                    |
-| `OCR_PROVIDER`         | Empty disables text recognition. Only a mock provider ships — see LIMITATIONS.md |
-| `MAX_UPLOAD_SIZE_MB`   | Server-side limit; mirror it in `NEXT_PUBLIC_MAX_UPLOAD_MB`                      |
-| `LOG_DOCUMENT_CONTENT` | Development aid. Forced off when `APP_ENV=production`                            |
+| Variable               | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `TTS_PROVIDER`         | `openai`, `elevenlabs`, `azure`, `mock`, or empty for browser-only speech |
+| `TTS_API_KEY`          | Provider credential. **Server-side only** — never exposed to the browser  |
+| `TTS_REGION`           | Required by the Azure adapter                                             |
+| `OCR_PROVIDER`         | `google-vision`, `mock`, or empty to disable text recognition entirely    |
+| `OCR_API_KEY`          | Provider credential. **Server-side only** — never exposed to the browser  |
+| `MAX_UPLOAD_SIZE_MB`   | Server-side limit; mirror it in `NEXT_PUBLIC_MAX_UPLOAD_MB`               |
+| `LOG_DOCUMENT_CONTENT` | Development aid. Forced off when `APP_ENV=production`                     |
 
 Only `NEXT_PUBLIC_*` variables reach the browser. Never put a credential in one.
 
@@ -123,11 +124,11 @@ Inside `apps/api`:
 ## Testing commands
 
 ```bash
-npm run test               # unit + integration (210 tests)
+npm run test               # unit + integration (282 tests)
 npm run test:unit          # pure logic only
 npm run test:integration   # full pipeline against generated PDF fixtures
 npm run test:e2e           # Playwright, needs the app running on :3000
-npm run api:test           # pytest (88 tests)
+npm run api:test           # pytest (108 tests)
 ```
 
 ### What is covered
@@ -143,12 +144,15 @@ the playback state machine, and timing honesty.
 generated fixtures: a 1-page document, a 50-page document with repeated
 furniture, a two-column paper with footnotes and a bibliography, a document with
 a table and caption, an image-only page, a mixed scanned/digital document, and a
-front-matter document with roman-numeral pagination.
+front-matter document with roman-numeral pagination; incremental extraction
+over a growing page prefix; and merging a recognised page into a document.
 
 **End-to-end** — upload and render, extraction, content review and restoring
 exclusions, switching reading modes, starting and pausing playback, changing
 speed without losing position, click-to-read, text-size and theme controls, page
-and search navigation, resuming after a reload, and keyboard accessibility.
+and search navigation, resuming after a reload, keyboard accessibility, and the
+text-recognition flow — consent gate, uncertain-word marking, correction, and
+adding or removing a recognised page.
 
 ### Test fixtures
 
@@ -280,7 +284,9 @@ them would change the sentence.
   through this app's own API, which holds the credential. Your browser never
   sees a provider key.
 - **Page images are never sent for text recognition** without your explicit
-  consent; the API rejects any request that does not carry it.
+  consent, given after being told which service receives them — and then only
+  for the individual pages you ask for. The browser refuses to build the request
+  without it and the API rejects any request that does not carry it.
 - **No document content is logged** in production. Validation errors report
   field names only, so document text is never echoed back in an error message.
   A log filter redacts anything resembling a credential.
@@ -338,7 +344,7 @@ pdf-human-reader/
 │           ├── core/             config, normalized errors, redacting logging
 │           ├── models/           request/response schemas
 │           ├── providers/tts/    base + openai, elevenlabs, azure, mock, registry
-│           ├── providers/ocr/    base + mock, registry
+│           ├── providers/ocr/    base + google-vision, mock, registry
 │           ├── services/         audio cache, temporary files
 │           └── security/         upload validation, rate limiting
 ├── packages/
@@ -361,9 +367,11 @@ The file is damaged, truncated, or uses an encryption method PDF.js cannot open.
 Try re-downloading it, or open it in another viewer and save an unencrypted copy.
 
 **"No readable text was found in this document."**
-The pages are scans with no text layer. The reader will not guess at words it
-cannot extract. Text recognition is not yet wired into the interface, so scanned
-pages cannot currently be processed — see LIMITATIONS.md.
+The pages are scans with no text layer, so there is nothing to extract and the
+reader will not guess at words. If your deployment sets `OCR_PROVIDER`, open
+_Text recognition_ from the navigation panel: it will offer to send an image of
+a scanned page for recognition, once you agree to that. Recognised text is shown
+to you with uncertain words marked before it becomes part of the reading text.
 
 **No voices in the voice selector.**
 Your browser has no speech voices installed (common in headless or minimal Linux
@@ -387,7 +395,12 @@ server provider.
 **Extraction is slow on a very large PDF.**
 Extraction runs in a Web Worker, so the interface stays responsive, but a
 thousand-page document takes time and holds two copies of the file in memory
-(one for rendering, one for the worker). See LIMITATIONS.md.
+(one for rendering, one for the worker). You do not have to wait for it: the
+worker analyses a growing prefix and the reader becomes playable after the first
+page. Until the last page has been seen the classification is provisional, and
+the app says so — a running header cannot be recognised as one until it has
+appeared on several pages, so it is read aloud at first. An early pass always
+reads more than the final pass will, never less. See LIMITATIONS.md.
 
 **Content Review shows something being skipped that should be read.**
 Click _Read this_ on that region, or _Restore everything that was skipped_. Your

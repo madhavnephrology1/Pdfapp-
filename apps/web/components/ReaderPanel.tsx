@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import type { SentenceRecord } from '@pdfreader/shared-types';
+import type { OCRPageRecord, SentenceRecord } from '@pdfreader/shared-types';
 import { splitWords } from '@/features/extraction/sentences';
+import { remainingLowConfidenceIndexes } from '@/features/ocr/items';
 import { isEstimatedTiming, timingSourceLabel } from '@/features/playback/timing';
 import { buildReaderParagraphs, type ReaderParagraph } from '@/features/reader/queue';
 import { useReducedMotion } from '@/hooks/use-theme';
@@ -14,7 +15,7 @@ import styles from './ReaderPanel.module.css';
 const HEADING_TYPES = new Set(['heading']);
 
 export function ReaderPanel() {
-  const { regions, sentences, settings, queue } = useDocumentStore();
+  const { regions, sentences, settings, queue, ocrPages } = useDocumentStore();
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -42,6 +43,18 @@ export function ReaderPanel() {
 
   const { reader } = settings;
   const estimated = isEstimatedTiming(wordTimingSource);
+
+  // Recognised text must never be able to pass as the document's own text, so
+  // the pages it came from are marked wherever their paragraphs are shown.
+  const recognizedPages = useMemo(
+    () =>
+      new Map(
+        Object.values(ocrPages)
+          .filter((record) => record.accepted)
+          .map((record) => [record.pageNumber, record]),
+      ),
+    [ocrPages],
+  );
 
   if (paragraphs.length === 0) {
     return (
@@ -91,6 +104,7 @@ export function ReaderPanel() {
               activeSentenceId={activeSentenceId}
               activeWordIndex={activeWordIndex}
               estimatedWordTiming={estimated}
+              recognized={recognizedPages.get(paragraph.pageNumber) ?? null}
               activeRef={activeRef}
               onSelect={(id) => void seekToSentence(id)}
             />
@@ -106,6 +120,8 @@ interface ParagraphProps {
   activeSentenceId: string | null;
   activeWordIndex: number | null;
   estimatedWordTiming: boolean;
+  /** Set when this page's text was recognised from an image, not extracted. */
+  recognized: OCRPageRecord | null;
   activeRef: React.RefObject<HTMLElement | null>;
   onSelect: (sentenceId: string) => void;
 }
@@ -115,6 +131,7 @@ function Paragraph({
   activeSentenceId,
   activeWordIndex,
   estimatedWordTiming,
+  recognized,
   activeRef,
   onSelect,
 }: ParagraphProps) {
@@ -126,7 +143,16 @@ function Paragraph({
       className={`${styles.block} ${paragraph.included ? '' : styles.excludedBlock}`}
       data-region-type={paragraph.regionType}
       data-page={paragraph.pageNumber}
+      data-text-source={recognized ? 'ocr' : undefined}
     >
+      {recognized && (
+        <p className={styles.blockNotice}>
+          <span className="badge badge-uncertain">Recognised</span> Read from an image of page{' '}
+          {paragraph.pageNumber} by {recognized.result.provider}, not from the PDF&rsquo;s own text.
+          {remainingLowConfidenceIndexes(recognized).length > 0 &&
+            ` ${remainingLowConfidenceIndexes(recognized).length} word(s) on this page are still marked uncertain.`}
+        </p>
+      )}
       {!paragraph.included && (
         <p className={styles.blockNotice}>
           <span className="badge badge-excluded">Not read</span> Classified as{' '}

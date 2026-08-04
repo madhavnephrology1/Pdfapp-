@@ -1,8 +1,8 @@
 """OCR provider selection.
 
-Only a mock provider ships today. The interface, consent gate, confidence
-handling and route are complete and tested, so adding a real vendor means adding
-one adapter module. See LIMITATIONS.md.
+A provider is only usable here if it returns a per-word confidence, because this
+application marks uncertain words rather than presenting them as read. See
+LIMITATIONS.md for what has and has not been exercised against a live service.
 """
 
 from __future__ import annotations
@@ -13,10 +13,12 @@ from app.core.config import Settings
 from app.core.errors import ProviderError
 
 from .base import OCRProvider
+from .google_vision import GoogleVisionOCRProvider
 from .mock import MockOCRProvider
 
 _FACTORIES: dict[str, Callable[[Settings], OCRProvider]] = {
     "mock": lambda _s: MockOCRProvider(),
+    "google-vision": lambda s: GoogleVisionOCRProvider(s.ocr_api_key, s.ocr_request_timeout_seconds),
 }
 
 AVAILABLE_PROVIDERS = tuple(_FACTORIES)

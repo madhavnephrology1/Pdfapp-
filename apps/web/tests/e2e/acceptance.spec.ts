@@ -9,6 +9,9 @@ test('acceptance criteria', async ({ page }) => {
   // 1. Upload a valid PDF.
   await page.setInputFiles('input[type="file"]', path);
   await expect(page.locator('#reading-text')).toBeVisible({ timeout: 60_000 });
+  // Reading text appears from the first pages analysed; the criteria below
+  // concern the finished document, so wait for the final pass.
+  await expect(page.getByText(/\d+ pages extracted/)).toBeVisible({ timeout: 60_000 });
 
   // 2. See its pages rendered.  3. See extracted reading text.
   await expect(page.locator('canvas').first()).toBeVisible();

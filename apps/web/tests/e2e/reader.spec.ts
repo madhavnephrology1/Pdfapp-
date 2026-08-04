@@ -12,8 +12,13 @@ async function upload(page: Page, fixture: Parameters<typeof writeFixture>[0]): 
   const path = await writeFixture(fixture);
   await page.goto('/');
   await page.setInputFiles('input[type="file"]', path);
-  // Extraction finished when the reading text appears.
+  // Reading text appears as soon as the first pages have been analysed, which
+  // is the point of the incremental pipeline. Most tests below assert on
+  // classification that only a whole-document view can produce — a running
+  // header cannot be recognised from one page — so they wait for the final
+  // pass, reported by the extraction progress caption.
   await expect(page.locator('#reading-text')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/\d+ pages extracted/)).toBeVisible({ timeout: 60_000 });
 }
 
 test.describe('upload and extraction', () => {
@@ -31,11 +36,31 @@ test.describe('upload and extraction', () => {
     );
   });
 
+  test('leaves no provisional state behind once the last page is analysed', async ({ page }) => {
+    await upload(page, 'fifty-page');
+
+    const nav = page.getByRole('navigation', { name: 'Document navigation' });
+    await expect(nav).toContainText('50 pages');
+    // The warnings that qualify a partial classification must be gone: nothing
+    // may be left describing the document as provisional once it is not.
+    await expect(nav).not.toContainText('provisional');
+    await expect(nav).not.toContainText('were analysed');
+    await expect(page.getByText(/can be read now/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Stop analysing' })).toHaveCount(0);
+  });
+
   test('joins a word split across lines and never shows the broken form', async ({ page }) => {
     await upload(page, 'single-page');
     const text = await page.locator('#reading-text').innerText();
     expect(text).toContain('ultrafiltrate of plasma');
     expect(text).not.toContain('ultra- filtrate');
+  });
+
+  test('reports a scanned page as unreadable rather than inventing text', async ({ page }) => {
+    await upload(page, 'mixed-scanned');
+    const nav = page.getByRole('navigation', { name: 'Document navigation' });
+    await expect(nav).toContainText('appear to be scans with no text layer');
+    await expect(nav).toContainText('no text has been invented');
   });
 
   test('rejects a file whose bytes are not a PDF', async ({ page }) => {
@@ -81,6 +106,96 @@ test.describe('content review', () => {
     await upload(page, 'two-column-paper');
     // Skipped regions still appear, marked "Not read".
     await expect(page.locator('#reading-text').getByText('Not read').first()).toBeVisible();
+  });
+});
+
+test.describe('text recognition', () => {
+  /**
+   * Runs against the mock provider, which returns two obviously-placeholder
+   * words at low confidence. That is deliberate: it exercises the consent gate,
+   * the uncertain-word marking and the correction flow without any real text
+   * that could mask a mistake, and without contacting a vendor.
+   */
+  const openPanel = async (page: Page) => {
+    await upload(page, 'mixed-scanned');
+    await page.getByRole('button', { name: 'Text recognition' }).click();
+    return page.getByRole('dialog', { name: 'Text recognition' });
+  };
+
+  test('will not send a page image until the reader agrees', async ({ page }) => {
+    const panel = await openPanel(page);
+    await expect(panel).toContainText('sending a picture of that page');
+    // The action is visible but inert: nothing can be sent while consent is off.
+    await expect(panel.getByRole('button', { name: 'Recognise this page' }).first()).toBeDisabled();
+    await expect(panel).toContainText('will not send anything until you agree');
+  });
+
+  test('recognises a page, marks uncertain words, and keeps them out of the reader until added', async ({
+    page,
+  }) => {
+    const panel = await openPanel(page);
+    await panel.getByRole('checkbox').first().check();
+
+    const recognise = panel.getByRole('button', { name: 'Recognise this page' }).first();
+    await expect(recognise).toBeEnabled();
+    await recognise.click();
+
+    await panel.getByRole('button', { name: 'Review text' }).first().click();
+    await expect(panel).toContainText('Read from an image');
+    await expect(panel).toContainText('marked below as uncertain');
+    // The mock returns placeholders at 40% confidence; both must be marked.
+    await expect(panel.getByRole('button', { name: /unrecognized/ }).first()).toBeVisible();
+
+    // Nothing has entered the reading text yet.
+    await expect(page.locator('#reading-text')).not.toContainText('[unrecognized]');
+  });
+
+  test('adds recognised text to the reader only when asked, and marks it there', async ({
+    page,
+  }) => {
+    const panel = await openPanel(page);
+    await panel.getByRole('checkbox').first().check();
+    await panel.getByRole('button', { name: 'Recognise this page' }).first().click();
+    await panel.getByRole('button', { name: 'Review text' }).first().click();
+    await panel.getByRole('button', { name: /Add this page to the reading text/ }).click();
+    await panel.getByRole('button', { name: 'Close' }).click();
+
+    const reader = page.locator('#reading-text');
+    await expect(reader).toContainText('[unrecognized]');
+    // It must never be able to pass as the document's own text.
+    await expect(reader).toContainText('Read from an image of page');
+    await expect(reader.locator('[data-text-source="ocr"]').first()).toBeVisible();
+  });
+
+  test('a correction replaces the recognised word in the reading text', async ({ page }) => {
+    const panel = await openPanel(page);
+    await panel.getByRole('checkbox').first().check();
+    await panel.getByRole('button', { name: 'Recognise this page' }).first().click();
+    await panel.getByRole('button', { name: 'Review text' }).first().click();
+
+    await panel
+      .getByRole('button', { name: /unrecognized/ })
+      .first()
+      .click();
+    const input = panel.getByRole('textbox').first();
+    await input.fill('Glomerulus');
+    await input.press('Enter');
+
+    await panel.getByRole('button', { name: /Add this page to the reading text/ }).click();
+    await panel.getByRole('button', { name: 'Close' }).click();
+    await expect(page.locator('#reading-text')).toContainText('Glomerulus');
+  });
+
+  test('taking a recognised page back out restores the document', async ({ page }) => {
+    const panel = await openPanel(page);
+    await panel.getByRole('checkbox').first().check();
+    await panel.getByRole('button', { name: 'Recognise this page' }).first().click();
+    await panel.getByRole('button', { name: 'Review text' }).first().click();
+    await panel.getByRole('button', { name: /Add this page to the reading text/ }).click();
+    await panel.getByRole('button', { name: /Take this page back out/ }).click();
+    await panel.getByRole('button', { name: 'Close' }).click();
+
+    await expect(page.locator('#reading-text')).not.toContainText('[unrecognized]');
   });
 });
 

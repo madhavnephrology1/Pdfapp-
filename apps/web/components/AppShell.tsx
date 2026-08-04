@@ -7,6 +7,7 @@ import { useDocumentStore } from '@/stores/document-store';
 import { usePlaybackStore } from '@/stores/playback-store';
 import { ContentReviewPanel } from './ContentReviewPanel';
 import { LeftPanel } from './LeftPanel';
+import { OcrPanel } from './OcrPanel';
 import { PdfViewer } from './PdfViewer';
 import { PlayerBar } from './PlayerBar';
 import { ReaderPanel } from './ReaderPanel';
@@ -28,10 +29,16 @@ export function AppShell() {
     resumePrompt,
     dismissResumePrompt,
     cancelProcessing,
+    stopAnalysis,
+    analyzing,
+    pagesAnalyzed,
+    totalPages,
+    setCurrentPage,
   } = useDocumentStore();
 
   const playback = usePlaybackStore();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const positionSaveRef = useRef<number>(0);
@@ -80,19 +87,33 @@ export function AppShell() {
 
   // Warn before a refresh discards in-progress extraction.
   useEffect(() => {
-    if (status !== 'processing') return;
+    if (!analyzing) return;
     const onBeforeUnload = (event: BeforeUnloadEvent): void => {
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [status]);
+  }, [analyzing]);
+
+  /**
+   * The stored sentence may not be in the queue yet while the later pages of a
+   * document are still being analysed. Rather than offering a button that would
+   * quietly do nothing, the banner waits until there is somewhere real to go:
+   * the sentence itself, or — once analysis has finished and the sentence is
+   * genuinely gone — the page it was on.
+   */
+  const resumeSentence = resumePrompt?.lastSentenceId
+    ? (queue.entries.find((entry) => entry.sentence.id === resumePrompt.lastSentenceId)?.sentence ??
+      null)
+    : null;
+  const canResume = Boolean(resumePrompt) && (Boolean(resumeSentence) || !analyzing);
 
   const resume = useCallback(() => {
-    if (resumePrompt?.lastSentenceId) void playback.seekToSentence(resumePrompt.lastSentenceId);
+    if (resumeSentence) void playback.seekToSentence(resumeSentence.id);
+    else if (resumePrompt) setCurrentPage(resumePrompt.lastPage);
     dismissResumePrompt();
-  }, [resumePrompt, playback, dismissResumePrompt]);
+  }, [resumeSentence, resumePrompt, playback, setCurrentPage, dismissResumePrompt]);
 
   if (status === 'empty' || (status === 'error' && !fileName)) {
     return (
@@ -160,15 +181,27 @@ export function AppShell() {
         </div>
       </header>
 
-      {status === 'processing' && (
+      {analyzing && (
         <div className={styles.processing} role="status" aria-live="polite">
-          <span>
-            Processing {fileName} — {progress.phase}
-            {progress.pagesTotal > 0 &&
-              ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
-          </span>
-          <button type="button" className="btn btn-sm" onClick={cancelProcessing}>
-            Cancel
+          {status === 'ready' ? (
+            <span>
+              The first {pagesAnalyzed} of {totalPages || '?'} pages can be read now. The rest are
+              still being analysed, and what is skipped may change — a running header cannot be
+              recognised until it has been seen on several pages.
+            </span>
+          ) : (
+            <span>
+              Processing {fileName} — {progress.phase}
+              {progress.pagesTotal > 0 &&
+                ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={status === 'ready' ? stopAnalysis : cancelProcessing}
+          >
+            {status === 'ready' ? 'Stop analysing' : 'Cancel'}
           </button>
         </div>
       )}
@@ -186,7 +219,7 @@ export function AppShell() {
         </div>
       )}
 
-      {resumePrompt && status === 'ready' && (
+      {resumePrompt && canResume && status === 'ready' && (
         <div className={styles.resumeBanner} role="region" aria-label="Resume reading">
           <span>
             You were on page {resumePrompt.lastPage} of this document on{' '}
@@ -205,7 +238,10 @@ export function AppShell() {
 
       <div className={styles.columns}>
         <div id="document-nav" className={`${styles.left} ${navOpen ? styles.leftOpen : ''}`}>
-          <LeftPanel onOpenReview={() => setReviewOpen(true)} />
+          <LeftPanel
+            onOpenReview={() => setReviewOpen(true)}
+            onOpenRecognition={() => setOcrOpen(true)}
+          />
         </div>
         <div className={styles.center}>
           <PdfViewer />
@@ -218,6 +254,7 @@ export function AppShell() {
       <PlayerBar />
 
       {reviewOpen && <ContentReviewPanel onClose={() => setReviewOpen(false)} />}
+      {ocrOpen && <OcrPanel onClose={() => setOcrOpen(false)} />}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );

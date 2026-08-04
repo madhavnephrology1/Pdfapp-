@@ -30,6 +30,12 @@ export function sentenceAtTime(
 ): string | null {
   if (chunk.sentenceOffsets.length === 0) return null;
 
+  // An audio element reports a duration of NaN before its metadata has loaded,
+  // and Infinity for a stream of unknown length; callers pass both through as 0.
+  // Nothing can be said about position without a duration, so say nothing —
+  // returning a sentence here would move the reader's place on no evidence.
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return null;
+
   if (sentenceTimings && sentenceTimings.length > 0) {
     const match = sentenceTimings.find(
       (timing) => audioTime >= timing.audioStart && audioTime < timing.audioEnd,
@@ -40,7 +46,6 @@ export function sentenceAtTime(
 
   // No provider timings: distribute by character share of the chunk. This is an
   // ESTIMATE and callers must treat it as such.
-  if (durationSeconds <= 0) return chunk.sentenceOffsets[0].sentenceId;
   const ratio = Math.min(1, Math.max(0, audioTime / durationSeconds));
   const targetOffset = ratio * chunk.text.length;
   for (const entry of chunk.sentenceOffsets) {
@@ -115,6 +120,10 @@ export function estimateSentenceTimings(
   chunk: TTSChunk,
   durationSeconds: number,
 ): { sentenceId: string; audioStart: number; audioEnd: number }[] {
+  // Without a duration there is no estimate to make. Returning a table of zeros
+  // would be worse than returning nothing: every sentence would appear to span
+  // an empty range, and a lookup would fall through to the last one.
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return [];
   const total = chunk.text.length || 1;
   return chunk.sentenceOffsets.map((entry) => ({
     sentenceId: entry.sentenceId,

@@ -47,9 +47,18 @@ export interface DocumentSettings {
   /** Region id -> explicit user decision. Always wins over automatic rules. */
   regionOverrides: Record<string, 'include' | 'exclude'>;
   /**
-   * User consented to sending page images to a third-party OCR provider.
-   * The API enforces this flag; the browser has no OCR flow yet, so nothing
-   * sets it today. See LIMITATIONS.md.
+   * The reader agreed to send images of scanned pages to the third-party
+   * recognition service this deployment is configured with. Off until they say
+   * otherwise, checked in the browser before a request is built, and enforced
+   * again by the API so a client bug cannot bypass it.
+   *
+   * Consent to send images is not consent to send any particular page: each
+   * page is still recognised only when the reader asks for that page.
    */
   ocrConsent: boolean;
+  /**
+   * Scale a page is rendered at before it is sent for recognition. Higher reads
+   * small type more reliably and produces a larger request.
+   */
+  ocrRenderScale: number;
 }

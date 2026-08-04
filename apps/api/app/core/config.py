@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     ocr_provider: str = ""
     ocr_api_key: str = ""
     ocr_region: str = ""
+    # A page image is a much larger request than a passage of text, and a dense
+    # scan can take a while to recognise, so this is longer than the TTS one.
+    ocr_request_timeout_seconds: float = 60.0
 
     # --- Temporary files -------------------------------------------------
     temp_file_directory: str = ""

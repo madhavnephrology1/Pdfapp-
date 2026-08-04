@@ -25,9 +25,11 @@ class MockOCRProvider(OCRProvider):
                 recovery="Try the page again, or continue without text recognition.",
             )
 
+        # Image pixels, origin top-left: see OCRWord. These sit near the top of
+        # a page rendered at 2x, which is the client's default scale.
         words = [
-            OCRWord(text="[unrecognized]", confidence=0.4, x=72, y=700, width=60, height=12),
-            OCRWord(text="[unrecognized]", confidence=0.4, x=140, y=700, width=60, height=12),
+            OCRWord(text="[unrecognized]", confidence=0.4, x=144, y=160, width=120, height=24),
+            OCRWord(text="[unrecognized]", confidence=0.4, x=280, y=160, width=120, height=24),
         ]
         return OCRPageResult(
             page_number=page.page_number,
