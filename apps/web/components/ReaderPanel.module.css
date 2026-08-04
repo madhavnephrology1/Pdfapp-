@@ -143,3 +143,28 @@
   max-width: 46ch;
   margin: 0 auto;
 }
+
+.diagnostics {
+  margin-top: 20px;
+}
+
+.diagnosticActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.diagnosticReport {
+  margin-top: 12px;
+  padding: 12px;
+  text-align: left;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  border-radius: 6px;
+  /* A long user-agent string must not push the page sideways on a phone. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -114,30 +114,44 @@ async function runExtraction(
     // Legacy build: see lib/pdf.ts for why.
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
-    // Hand PDF.js its worker code rather than a URL to fetch.
+    // Bundle PDF.js's worker code rather than leaving it to be fetched.
     //
-    // PDF.js decides how to run its worker by looking at `window.location`.
-    // There is no `window` inside a Web Worker, so that check throws and it
-    // always falls back to `await import(workerSrc)` — fetching its worker
-    // module over the network. That fetch depends on the host serving a `.mjs`
-    // file with a JavaScript media type, and a module is refused outright when
-    // the type is wrong. When it is refused, every page fails.
+    // PDF.js first tries a nested `new Worker(workerSrc)`. When that cannot
+    // start — the host 404s the file, or serves it with a media type a module
+    // worker refuses — it falls back to running the worker's code on this
+    // thread, and it obtains that code with `await import(workerSrc)`: the same
+    // network fetch that just failed. So a single unfetchable file takes the
+    // fallback down with it, and every page then fails.
     //
-    // `globalThis.pdfjsWorker` is checked before any of that (see
-    // PDFWorker.#initialize), so providing the module here removes the fetch,
-    // the media type, the base path and the 404 as ways for this to break. The
-    // import is bundled with this worker, so it either loads with it or fails
-    // loudly at startup.
-    const workerModule = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-    (scope as unknown as { pdfjsWorker?: unknown }).pdfjsWorker = workerModule;
-    // PDF.js needs a worker URL even when it ends up running on this thread.
-    // Browsers that support nested workers give PDF.js its own thread; those
-    // that do not fall back to a same-thread "fake worker", which is still off
-    // the UI thread because we are already inside a worker.
-    // Never read now that the module above is provided, but set so that any
-    // future path which does consult it gets a bundler-resolved URL rather than
-    // a hand-built one.
+    // Evaluating the module here removes that. `pdf.worker.mjs` assigns
+    // `globalThis.pdfjsWorker` as its last statement, and `PDFWorker` checks
+    // that global before it fetches anything, so the fallback finds the handler
+    // already in memory. The import is bundled with this worker, so it either
+    // loads with it or fails loudly at startup.
+    //
+    // Verified: with the emitted `pdf.worker.*.mjs` deleted from the served
+    // directory the document still reads (7,512 words); with this import
+    // removed and the same file deleted, the document fails to open at all.
+    await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+
+    // Still required: `PDFWorker.workerSrc` throws when unset, and it is what
+    // the nested-worker attempt uses on hosts where that attempt succeeds.
     pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+
+    // If a future PDF.js stops self-registering, the line above goes quiet
+    // rather than wrong — the fetch comes back and takes the host's behaviour
+    // with it. Say so where it can be read instead of finding out in the field.
+    const registered = (globalThis as { pdfjsWorker?: { WorkerMessageHandler?: unknown } })
+      .pdfjsWorker?.WorkerMessageHandler;
+    if (!registered) {
+      post({
+        type: 'progress',
+        phase: 'loading',
+        pagesExtracted: 0,
+        pagesTotal: 0,
+        message: 'the PDF engine could not be loaded from this app and will be fetched instead',
+      });
+    }
 
     const task = pdfjs.getDocument({
       data,

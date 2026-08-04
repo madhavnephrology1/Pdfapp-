@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **282** unit and integration tests in the web
+Test counts as of this revision: **288** unit and integration tests in the web
 app, **108** in the API, and **30** end-to-end tests in Chromium.
 
 ---
@@ -296,4 +296,20 @@ support nested workers give PDF.js a separate thread; those that do not fall
 back to running it on the extraction worker's thread — still off the UI thread,
 which is what matters for responsiveness.
 
-End-to-end tests run in Chromium only. Firefox and Safari are untested.
+PDF.js's own worker module is **bundled into the extraction worker** rather than
+left to be fetched. Its fallback path fetches the same file the nested worker
+just failed to start from, so one unfetchable file used to take both paths down
+and every page then failed. Evaluating the module registers the handler PDF.js
+looks for before it fetches anything. This is verified in both directions:
+deleting the emitted `pdf.worker.*.mjs` from the served directory leaves the
+document reading normally, and removing the import as well makes it fail to open
+at all.
+
+End-to-end tests run in Chromium only. **Firefox and Safari are untested**, and
+one reported failure on iOS Safari — the document reports every page extracted
+and then produces no reading text — is **unresolved and has never been
+reproduced here**. No WebKit build is available in this environment and the
+network policy blocks reaching the deployed site, so nothing about that report
+has been confirmed or ruled out. The failure states in the reader panel carry a
+diagnostic report (counts, per-page failure reasons, the browser string, and no
+document text) so a phone can say what happened without a developer console.

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OCRPageRecord, SentenceRecord } from '@pdfreader/shared-types';
 import { splitWords } from '@/features/extraction/sentences';
 import { remainingLowConfidenceIndexes } from '@/features/ocr/items';
 import { isEstimatedTiming, timingSourceLabel } from '@/features/playback/timing';
+import { formatDiagnostics } from '@/features/reader/diagnostics';
 import { buildReaderParagraphs, type ReaderParagraph } from '@/features/reader/queue';
 import { useReducedMotion } from '@/hooks/use-theme';
 import { useDocumentStore } from '@/stores/document-store';
@@ -14,9 +15,60 @@ import styles from './ReaderPanel.module.css';
 /** Region types rendered as headings rather than body paragraphs. */
 const HEADING_TYPES = new Set(['heading']);
 
+/**
+ * Shows what the application knows about a failure, on the screen where the
+ * failure appears.
+ *
+ * The text is rendered as well as offered to the clipboard, because a phone is
+ * where these failures have actually been seen and a screenshot is often the
+ * only channel back. Copying can fail — Safari refuses the clipboard in some
+ * contexts — so the visible copy is the one that always works, and the button
+ * says plainly when it did not.
+ */
+function Diagnostics({ report }: { report: string }): React.JSX.Element {
+  const [copied, setCopied] = useState<'idle' | 'done' | 'failed'>('idle');
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className={styles.diagnostics}>
+      <div className={styles.diagnosticActions}>
+        <button type="button" className="btn btn-sm" onClick={() => setOpen((value) => !value)}>
+          {open ? 'Hide details' : 'Show details'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => {
+            navigator.clipboard
+              ?.writeText(report)
+              .then(() => setCopied('done'))
+              .catch(() => setCopied('failed'));
+          }}
+        >
+          Copy details
+        </button>
+        {copied === 'done' && <span className="hint">Copied.</span>}
+        {copied === 'failed' && (
+          <span className="hint">This browser refused the clipboard — read it below instead.</span>
+        )}
+      </div>
+      {open && <pre className={styles.diagnosticReport}>{report}</pre>}
+    </div>
+  );
+}
+
 export function ReaderPanel() {
-  const { regions, sentences, settings, queue, ocrPages, analyzing, pagesAnalyzed, totalPages } =
-    useDocumentStore();
+  const {
+    regions,
+    sentences,
+    settings,
+    queue,
+    ocrPages,
+    analyzing,
+    pagesAnalyzed,
+    totalPages,
+    fileName,
+  } = useDocumentStore();
   const rawItems = useDocumentStore((state) => state.rawItems);
   const pages = useDocumentStore((state) => state.pages);
   const progress = useDocumentStore((state) => state.progress);
@@ -92,6 +144,17 @@ export function ReaderPanel() {
     // therefore told the document had no text when in fact every page had
     // failed and the reason was sitting behind a button they had no cause to
     // press. A failure this total belongs where the text would have been.
+    const diagnostics = formatDiagnostics({
+      fileName,
+      totalPages,
+      pagesAnalyzed,
+      pages,
+      failedPages: failed,
+      rawItemCount: rawItems.length,
+      progressMessage: progress.message,
+      userAgent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
+    });
+
     if (failed.length > 0 && failed.length >= pages.length) {
       return (
         <div className={styles.empty}>
@@ -100,6 +163,7 @@ export function ReaderPanel() {
             All {failed.length} page(s) failed. The first said: “{failed[0].reason}”. No text has
             been guessed at to fill the gap.
           </p>
+          <Diagnostics report={diagnostics} />
         </div>
       );
     }
@@ -127,6 +191,7 @@ export function ReaderPanel() {
             not in your document — please report it.
           </p>
         )}
+        <Diagnostics report={diagnostics} />
       </div>
     );
   }
