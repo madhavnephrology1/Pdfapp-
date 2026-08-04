@@ -194,6 +194,9 @@ export function AppShell() {
               Processing {fileName} — {progress.phase}
               {progress.pagesTotal > 0 &&
                 ` ${progress.pagesExtracted} of ${progress.pagesTotal} pages`}
+              {/* Anything the worker could not do is said here rather than
+                  left in a console the reader cannot open. */}
+              {progress.message && ` — ${progress.message}`}
             </span>
           )}
           <button

@@ -24,6 +24,9 @@ import type { ExtractionPayload, WorkerRequest, WorkerResponse } from './protoco
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
+/** How long to wait for PDF.js to release the document before moving on. */
+const DESTROY_TIMEOUT_MS = 5000;
+
 let cancelled = false;
 
 const post = (message: WorkerResponse, transfer?: Transferable[]): void => {
@@ -80,11 +83,18 @@ function postPartialPass(
       pagesTotal: pageCount,
     });
   } catch (error) {
-    console.warn(
-      `[extraction] provisional pass over ${pageInputs.length} page(s) failed; ` +
-        'continuing to the full pass.',
-      error,
-    );
+    // A console warning is invisible to someone holding a phone. Say it where
+    // it can be read: silently skipping every pass looks identical to being
+    // stuck, which is exactly the confusion this caused in the field.
+    const reason = (error as Error)?.message?.slice(0, 120) ?? 'unknown error';
+    console.warn(`[extraction] provisional pass over ${pageInputs.length} page(s) failed`, error);
+    post({
+      type: 'progress',
+      phase: 'extracting',
+      pagesExtracted: pageInputs.length,
+      pagesTotal: pageCount,
+      message: `a provisional pass could not be completed (${reason})`,
+    });
   }
 }
 
@@ -193,7 +203,14 @@ async function runExtraction(
       if (pageNumber % 5 === 0) await Promise.resolve();
     }
 
-    await task.destroy();
+    // Releasing the PDF is a courtesy, not a step the result depends on. It has
+    // been seen to never settle, which strands the run between the last page and
+    // the first result with nothing on screen to explain it — so it is bounded
+    // and the analysis proceeds either way.
+    await Promise.race([
+      task.destroy().catch(() => undefined),
+      new Promise((resolve) => scope.setTimeout(resolve, DESTROY_TIMEOUT_MS)),
+    ]);
     if (cancelled) return;
 
     post({
