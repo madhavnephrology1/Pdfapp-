@@ -95,9 +95,12 @@ function partitionFloatingItems(items: RawTextItem[]): {
  * what stops a marker attaching to a line in a different block that happens to
  * be the right distance away.
  */
-function findHostRun(item: RawTextItem, runs: RawTextItem[][]): RawTextItem[] | null {
+function findHostRun(
+  item: RawTextItem,
+  runs: RawTextItem[][],
+): { run: RawTextItem[]; superscript: boolean } | null {
   const size = sizeOf(item);
-  let best: RawTextItem[] | null = null;
+  let best: { run: RawTextItem[]; superscript: boolean } | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const run of runs) {
@@ -118,11 +121,34 @@ function findHostRun(item: RawTextItem, runs: RawTextItem[][]): RawTextItem[] | 
 
     const distance = Math.abs(rise);
     if (distance < bestDistance) {
-      best = run;
+      best = { run, superscript: withinRise };
       bestDistance = distance;
     }
   }
   return best;
+}
+
+/** Groups items already sorted top-to-bottom into runs sharing a baseline. */
+function groupByBaseline(items: RawTextItem[]): RawTextItem[][] {
+  const runs: RawTextItem[][] = [];
+  let current: RawTextItem[] = [];
+  let currentBaseline = Number.NaN;
+
+  for (const item of items) {
+    const fontSize = sizeOf(item);
+    const tolerance = Math.max(MIN_BASELINE_TOLERANCE, fontSize * BASELINE_TOLERANCE_RATIO);
+    if (current.length === 0 || Math.abs(item.y - currentBaseline) <= tolerance) {
+      if (current.length === 0) currentBaseline = item.y;
+      current.push(item);
+    } else {
+      runs.push(current);
+      current = [];
+      currentBaseline = item.y;
+      current.push(item);
+    }
+  }
+  if (current.length > 0) runs.push(current);
+  return runs;
 }
 
 export function groupLines(
@@ -156,37 +182,29 @@ export function groupLines(
     // higher up the page.
     const { body, floating } = partitionFloatingItems(sorted);
 
-    const runs: RawTextItem[][] = [];
-    let current: RawTextItem[] = [];
-    let currentBaseline = Number.NaN;
+    const runs = groupByBaseline(body);
 
-    const flush = (): void => {
-      if (current.length === 0) return;
-      runs.push(current);
-      current = [];
-    };
-
-    for (const item of body) {
-      const fontSize = item.fontSize || item.height || 10;
-      const tolerance = Math.max(MIN_BASELINE_TOLERANCE, fontSize * BASELINE_TOLERANCE_RATIO);
-      if (current.length === 0 || Math.abs(item.y - currentBaseline) <= tolerance) {
-        if (current.length === 0) currentBaseline = item.y;
-        current.push(item);
-      } else {
-        flush();
-        currentBaseline = item.y;
-        current.push(item);
-      }
-    }
-    flush();
-
-    // Anything with no line to belong to keeps its own, exactly as before. A
-    // marker is never dropped, only moved.
+    // Anything with no line to sit against is left exactly as it was. It must
+    // still be grouped with its own neighbours rather than isolated: a running
+    // header set smaller than the body is a whole line of "floating" items, and
+    // giving each its own line split "Journal of Clinical Nephrology    Vol. 12,
+    // No. 4" in two, so it no longer matched as repeated furniture and was read
+    // aloud on every page.
+    const leftovers: RawTextItem[] = [];
     for (const item of floating) {
       const host = findHostRun(item, runs);
-      if (host) host.push(item);
-      else runs.push([item]);
+      if (host) {
+        // Only a RAISED item is recorded as a marker. A dropped one is a
+        // subscript — the 2 in H2O — which is part of the word and must never
+        // be a candidate for skipping. Both are reattached to their line; only
+        // one is a citation.
+        if (host.superscript) item.raised = true;
+        host.run.push(item);
+      } else {
+        leftovers.push(item);
+      }
     }
+    runs.push(...groupByBaseline(leftovers));
 
     for (const run of runs) {
       // Re-sorted because an attached item belongs at its own x, not at the end.

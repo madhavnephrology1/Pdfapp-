@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RawTextItem } from '@pdfreader/shared-types';
+import {
+  buildSpeechProjection,
+  DEFAULT_CITATION_SETTINGS,
+} from '@/features/classification/citations';
 import { detectColumns } from '@/features/extraction/columns';
 import { groupLines } from '@/features/extraction/lines';
 
@@ -91,5 +95,99 @@ describe('superscript reattachment', () => {
     ]);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toBe('The formula H2O is water');
+  });
+
+  it('keeps a small running header as one line, not one line per item', () => {
+    // The regression this guards against: a running header set smaller than the
+    // body is entirely "floating", and giving each of its items its own line
+    // split "Journal of Clinical Nephrology    Vol. 12, No. 4" in two. It then
+    // no longer matched as repeated furniture and was read aloud on every page.
+    const lines = linesFrom([
+      item('Journal of Clinical Nephrology', 54, 106, 762, 8),
+      item('Vol. 12, No. 4', 169, 46, 762, 8),
+      item('Sodium handling in the proximal tubule is', 54, 236, 704, 11),
+      item('governed by several mechanisms acting', 54, 236, 693, 11),
+    ]);
+
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toBe('Journal of Clinical Nephrology Vol. 12, No. 4');
+  });
+
+  it('marks a raised item as a citation candidate but never a dropped one', () => {
+    const superscript = item('3-5', 232.2, 8, 308.9, 6.6);
+    const subscript = item('2', 96, 4, 497.5, 6);
+    const items = [
+      item('carcinoma, breast cancer, and neuroblastoma.', 35, 197, 304.5, 10),
+      superscript,
+      item('The formula H', 35, 60, 500, 10),
+      subscript,
+      item('O is water', 101, 45, 500, 10),
+    ];
+    linesFrom(items);
+
+    // The whole point of separating them: the 2 in H2O is part of the word.
+    expect(superscript.raised).toBe(true);
+    expect(subscript.raised).toBeUndefined();
+  });
+});
+
+describe('skipping markers by position', () => {
+  const settings = { ...DEFAULT_CITATION_SETTINGS, skipSuperscriptMarkers: true };
+
+  it('skips a raised marker without eating the space after it', () => {
+    const text = 'and neuroblastoma.3-5 Although most commonly seen';
+    const projection = buildSpeechProjection(text, settings, {
+      markerSpans: [{ start: 18, end: 21 }],
+    });
+
+    expect(text.slice(18, 21)).toBe('3-5');
+    expect(projection.text).toBe('and neuroblastoma. Although most commonly seen');
+    expect(projection.skipped.map((s) => s.text)).toEqual(['3-5']);
+  });
+
+  it('leaves the displayed sentence untouched', () => {
+    const text = 'It was treated.1,2';
+    const projection = buildSpeechProjection(text, settings, {
+      markerSpans: [{ start: 15, end: 18 }],
+    });
+    expect(projection.text).toBe('It was treated.');
+    // The reader still shows every character; only the spoken projection differs.
+    expect(text).toBe('It was treated.1,2');
+  });
+
+  it('refuses a raised run that is not a pure bibliographic pointer', () => {
+    const text = 'the 1st edition';
+    const projection = buildSpeechProjection(text, settings, {
+      markerSpans: [{ start: 4, end: 7 }],
+    });
+    expect(projection.text).toBe(text);
+  });
+
+  it('does not skip markers when the setting is off', () => {
+    const text = 'and neuroblastoma.3-5 Although';
+    const projection = buildSpeechProjection(
+      text,
+      { ...DEFAULT_CITATION_SETTINGS, skipSuperscriptMarkers: false },
+      { markerSpans: [{ start: 18, end: 21 }] },
+    );
+    expect(projection.text).toBe(text);
+  });
+
+  it('reads everything in Strict Verbatim Mode', () => {
+    const text = 'and neuroblastoma.3-5 Although';
+    const projection = buildSpeechProjection(text, settings, {
+      markerSpans: [{ start: 18, end: 21 }],
+      strictVerbatim: true,
+    });
+    expect(projection.text).toBe(text);
+  });
+
+  it('keeps word highlighting landing on the right displayed word', () => {
+    const text = 'and neuroblastoma.3-5 Although';
+    const projection = buildSpeechProjection(text, settings, {
+      markerSpans: [{ start: 18, end: 21 }],
+    });
+    const spokenIndex = projection.text.indexOf('Although');
+    expect(text.slice(projection.toDisplayOffset(spokenIndex))).toBe('Although');
   });
 });

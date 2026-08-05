@@ -41,6 +41,13 @@ export interface RawTextItem {
   fontName?: string;
   fontSize?: number;
   direction?: 'ltr' | 'rtl' | 'ttb';
+  /**
+   * True when this item is set smaller than the line it sits on and raised
+   * above or dropped below its baseline — a superscript or subscript. Decided
+   * from geometry during line grouping, which is the only place that knows both
+   * the item and the line it belongs to.
+   */
+  raised?: boolean;
   hasEOL?: boolean;
   /** Index within the page's text item array; preserves original emission order. */
   sourceIndex: number;
@@ -163,6 +170,14 @@ export interface SentenceRecord {
   normalizedStart: number;
   normalizedEnd: number;
   sourceTextItemIds: string[];
+  /**
+   * Character ranges WITHIN `text` that came from raised or dropped items —
+   * superscript citation markers, almost always. Offsets are relative to this
+   * sentence, and they exist so a marker can be skipped in speech by position
+   * rather than by guessing at the characters: a pattern that matches "3-5"
+   * glued to a word also matches the 2 in H2O.
+   */
+  markerSpans?: { start: number; end: number }[];
   boundingBoxes: BoundingBox[];
   inclusionStatus: InclusionStatus;
   transformations: TransformationRecord[];

@@ -175,6 +175,23 @@ export function extractDocument(
       const id = makeSentenceId(paragraphIdValue, index);
       const overlapping = joined.spans.filter((s) => s.end > span.start && s.start < span.end);
       const sourceTextItemIds = [...new Set(overlapping.map((s) => s.itemId))];
+
+      // Where a raised item's characters actually sit inside this sentence.
+      // Clipped to the sentence, then trimmed to the non-whitespace core, so
+      // skipping a marker never eats the space that separates it from the next
+      // word — "neuroblastoma.3-5 Although" must speak as "neuroblastoma.
+      // Although", not "neuroblastoma.Although".
+      const markerSpans = overlapping
+        .filter((s) => itemsById.get(s.itemId)?.raised)
+        .map((s) => {
+          const start = Math.max(s.start, span.start) - span.start;
+          const end = Math.min(s.end, span.end) - span.start;
+          const slice = span.text.slice(start, end);
+          const lead = slice.length - slice.trimStart().length;
+          const trail = slice.length - slice.trimEnd().length;
+          return { start: start + lead, end: end - trail };
+        })
+        .filter((s) => s.end > s.start);
       const transformations = joined.transformations.filter(
         (t) => t.offset >= span.start && t.offset <= span.end,
       );
@@ -190,6 +207,7 @@ export function extractDocument(
         normalizedStart: paragraphOffset + span.start,
         normalizedEnd: paragraphOffset + span.end,
         sourceTextItemIds,
+        ...(markerSpans.length > 0 ? { markerSpans } : {}),
         boundingBoxes: boundingBoxesForItems(sourceTextItemIds, itemsById, region.pageNumber),
         inclusionStatus: 'included',
         transformations,

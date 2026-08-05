@@ -103,6 +103,7 @@ export function buildReadingQueue(
     const projection = buildSpeechProjection(sentence.text, settings.citations, {
       strictVerbatim,
       sourceTextItemIds: sentence.sourceTextItemIds,
+      markerSpans: sentence.markerSpans,
     });
 
     if (projection.text.trim() === '') continue;

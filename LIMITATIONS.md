@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **316** unit and integration tests in the web
+Test counts as of this revision: **324** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -272,19 +272,37 @@ this took the page count of paragraphs from 165 to 60 and sentences from 486 to
 Three guards keep it from over-merging, and each has a test: the item must be
 smaller than the line it joins (so a uniformly small footnote or caption block
 has nothing floating in it), it must sit within a fraction of that line's font
-size vertically, and it must be horizontally within the line's own span. A
-marker with no line to belong to keeps its own line rather than being dropped.
+size vertically, and it must be horizontally within the line's own span.
 
-**What still is not done:** the marker is read aloud. `skipSuperscriptMarkers`
-exists as a setting but its detector only matches Unicode superscript
-characters (`¹²³`), and a typographic superscript is ordinary digits made small
-and raised — so the setting never fires on the common case. Skipping them
-properly needs the offset of each superscript run inside the sentence;
-`SentenceRecord` carries `sourceTextItemIds` but not per-character spans, so
-that mapping does not exist yet. It was **not** approximated with a text pattern
-on purpose: a rule like "digits glued to the previous word" also matches `H2O`
-and would silently drop real content, which is exactly what this application
-must never do.
+An item that attaches to nothing is grouped with its own neighbours exactly as
+before. The first version of this isolated each one instead, which **broke
+running-header detection**: a header set smaller than the body is entirely
+"floating", so "Journal of Clinical Nephrology    Vol. 12, No. 4" became two
+lines, stopped matching as repeated furniture, and was read aloud on every page.
+The unit tests did not catch it and the end-to-end suite did — it has a unit
+test of its own now.
+
+**Markers are now skipped in the audio, by position rather than by pattern.**
+Line grouping records which items are raised, the pipeline converts those into
+character ranges within each sentence (`SentenceRecord.markerSpans`), and the
+speech projection skips those ranges. No pattern is matched against the text, so
+nothing that merely resembles a marker is ever removed. On the reported PDF, 41
+of 485 sentences carry markers; "treated.1,2" speaks as "treated."
+
+Four things keep this from removing real content, each with a test:
+
+- **Only raised items count.** A dropped one is a subscript — the 2 in H2O — and
+  is reattached to its line but never marked as a citation.
+- **The range must be a pure bibliographic pointer**: digits and separators
+  only. A raised "1st", a dagger, or a letter is left alone.
+- **The displayed sentence is never altered.** The marker stays on screen, drawn
+  struck through, with "Not spoken: superscript citation marker" on hover. Only
+  the spoken projection differs, and Strict Verbatim Mode speaks it too.
+- **Word highlighting still lands correctly**, because the projection's offset
+  map already handles skipped spans.
+
+`skipSuperscriptMarkers` also still matches the literal Unicode superscript
+characters (`¹²³`), which is the rarer form.
 
 ### Fixture realism
 

@@ -18,7 +18,16 @@ import type { CitationSettings, TransformationRecord } from '@pdfreader/shared-t
 const NUMERIC_BRACKET = /\[\s*\d{1,3}(?:\s*[,;-–]\s*\d{1,3})*\s*\]/g;
 /** "(12)" standing alone between a word and punctuation. */
 const NUMERIC_PAREN = /\(\s*\d{1,3}(?:\s*[,;-–]\s*\d{1,3})*\s*\)/g;
-/** Superscript digit runs, e.g. "sodium¹²". */
+/**
+ * Superscript digit runs written with the Unicode superscript characters, e.g.
+ * "sodium¹²".
+ *
+ * Most PDFs do not use these. A typographic superscript is ordinary digits set
+ * smaller and raised, which no pattern over the text can tell apart from real
+ * content — "3-5" glued to a word looks exactly like the 2 in "H2O". Those are
+ * identified by geometry during extraction instead and arrive here as
+ * `markerSpans`; this pattern only covers the rarer literal form.
+ */
 const SUPERSCRIPT = /[¹²³⁰⁴-⁹]+/g;
 /**
  * "(Smith, 2019)", "(Smith & Jones, 2019; Cho et al., 2021)".
@@ -65,7 +74,16 @@ function identityProjection(text: string): SpeechProjection {
 export function buildSpeechProjection(
   displayText: string,
   settings: CitationSettings,
-  options: { strictVerbatim?: boolean; sourceTextItemIds?: string[] } = {},
+  options: {
+    strictVerbatim?: boolean;
+    sourceTextItemIds?: string[];
+    /**
+     * Character ranges known from the PAGE GEOMETRY to be raised or dropped —
+     * superscript citation markers. Positions, not patterns, so nothing that
+     * merely looks like a marker is ever removed.
+     */
+    markerSpans?: { start: number; end: number }[];
+  } = {},
 ): SpeechProjection {
   if (options.strictVerbatim) return identityProjection(displayText);
 
@@ -92,6 +110,17 @@ export function buildSpeechProjection(
   }
   if (settings.skipSuperscriptMarkers) {
     collect(SUPERSCRIPT, 'superscript citation marker');
+    for (const span of options.markerSpans ?? []) {
+      const start = Math.max(0, span.start);
+      const end = Math.min(displayText.length, span.end);
+      if (end <= start) continue;
+      const text = displayText.slice(start, end);
+      // A raised run that is not a bibliographic pointer is left alone. A
+      // footnote dagger or an ordinal "1st" carries meaning; a run of digits
+      // and separators does not.
+      if (!/^[\d\s,;.\u2013\u2014-]+$/.test(text)) continue;
+      candidates.push({ start, end, text, reason: 'superscript citation marker' });
+    }
   }
   if (!settings.readParentheticalCitations) {
     collect(AUTHOR_YEAR, 'parenthetical author-year citation');
