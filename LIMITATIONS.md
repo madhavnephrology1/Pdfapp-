@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **346** unit and integration tests in the web
+Test counts as of this revision: **349** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -305,6 +305,24 @@ which one is speaking.
 "Premium" and "Enhanced" in a voice name set the `neural` flag, which is a
 **name heuristic** — the Web Speech API reports no quality field. It only
 affects ranking; nothing in the interface claims a voice is high quality.
+
+### Drop caps
+
+A drop cap is one large letter whose baseline rests on the **last** line it
+spans, while the letter belongs at the start of the **first**. Grouping lines by
+baseline therefore grafted it onto the wrong line: the opening "T" of a real
+paper landed two lines down and was read as "…of meta- Tbolic abnormalities",
+which also broke the hyphen join that makes "metabolic". It is now attached to
+the first line it spans.
+
+A large letter only counts as a drop cap if it **displaces** text — its box has
+to cover the baselines of at least two lines that are all indented past it. A
+large initial that displaces nothing keeps its own line, as before.
+
+A related fix came with it: a line's reported font size is now the median
+**weighted by how much text each item carries**. Unweighted, a drop cap and its
+line averaged to 18pt for a 10pt paragraph, which read as a font change and split
+the block — taking the hyphen join with it.
 
 ### Superscript citation markers are shown, and still spoken
 

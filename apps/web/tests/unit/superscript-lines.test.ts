@@ -113,6 +113,55 @@ describe('superscript reattachment', () => {
     expect(lines[0]).toBe('Journal of Clinical Nephrology Vol. 12, No. 4');
   });
 
+  it('puts a drop cap at the start of the line it opens, not the one it rests on', () => {
+    // Real geometry: a 27pt "T" whose baseline sits within a point of the
+    // SECOND line it spans. Grouping by baseline read it as "…of meta- Tbolic
+    // abnormalities" and broke the hyphen join that makes "metabolic".
+    const lines = linesFrom([
+      item('T', 34.6, 16.1, 544.6, 26.9),
+      item('umor lysis syndrome (TLS) is a constellation of meta-', 50.7, 235, 556.6, 10),
+      item('bolic abnormalities resulting from the rapid release of', 50.9, 235, 545.6, 10),
+      item('intracellular metabolites when massive lysis of tumor', 35.1, 251, 534.6, 10),
+    ]);
+
+    expect(lines[0]).toBe('Tumor lysis syndrome (TLS) is a constellation of meta-');
+    expect(lines[1]).toBe('bolic abnormalities resulting from the rapid release of');
+  });
+
+  it('reports a line at the size of its text, not of one huge letter', () => {
+    const columns = detectColumns(
+      [
+        item('T', 34.6, 16.1, 544.6, 26.9),
+        item('umor lysis syndrome and more words here', 50.7, 235, 556.6, 10),
+        item('bolic abnormalities and more words here', 50.9, 235, 545.6, 10),
+      ],
+      612,
+    );
+    const built = groupLines(
+      [
+        item('T', 34.6, 16.1, 544.6, 26.9),
+        item('umor lysis syndrome and more words here', 50.7, 235, 556.6, 10),
+        item('bolic abnormalities and more words here', 50.9, 235, 545.6, 10),
+      ],
+      columns.columns,
+      'd',
+      1,
+      792,
+    );
+    // Unweighted this was 18.45 for a 10pt paragraph, which read as a font
+    // change and split the block.
+    expect(built[0].fontSize).toBeCloseTo(10, 1);
+  });
+
+  it('leaves a large initial alone when it displaces nothing', () => {
+    const lines = linesFrom([
+      item('A', 35, 20, 700, 24),
+      item('Body text that is not indented past it', 35, 200, 650, 10),
+    ]);
+    expect(lines).toHaveLength(2);
+    expect(lines.some((line) => line === 'A')).toBe(true);
+  });
+
   it('marks a raised item as a citation candidate but never a dropped one', () => {
     const superscript = item('3-5', 232.2, 8, 308.9, 6.6);
     const subscript = item('2', 96, 4, 497.5, 6);

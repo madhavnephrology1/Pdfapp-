@@ -44,6 +44,26 @@ const SUBSCRIPT_MAX_DROP_RATIO = 0.35;
 /** Horizontal slack, relative to the host's size, for sitting "against" a line. */
 const ATTACH_SLACK_RATIO = 1.5;
 
+/**
+ * Rules for putting a drop cap back at the start of its paragraph.
+ *
+ * A drop cap is one huge letter whose baseline sits on the LAST line it spans,
+ * while the letter itself belongs at the start of the FIRST. Grouping by
+ * baseline therefore grafts it onto the wrong line: in a real journal PDF the
+ * opening "T" of "Tumor lysis syndrome (TLS) is a constellation of metabolic
+ * abnormalities" landed two lines down and was read as "…of meta- Tbolic
+ * abnormalities", which also broke the hyphen join that would have made
+ * "metabolic".
+ *
+ * It is the mirror of the superscript case — an item whose baseline lies about
+ * something other than which line it belongs to.
+ */
+const DROP_CAP_MIN_SIZE_RATIO = 1.8;
+/** A drop cap is one letter. Two allows for a letter carrying a quote mark. */
+const DROP_CAP_MAX_CHARS = 2;
+/** It has to displace at least this many lines to be a drop cap at all. */
+const DROP_CAP_MIN_SPANNED_LINES = 2;
+
 function medianOf(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -72,18 +92,54 @@ const sizeOf = (item: RawTextItem): number => item.fontSize || item.height || 10
 function partitionFloatingItems(items: RawTextItem[]): {
   body: RawTextItem[];
   floating: RawTextItem[];
+  dropCaps: RawTextItem[];
 } {
   const median = medianOf(items.map(sizeOf));
-  if (median <= 0) return { body: items, floating: [] };
+  if (median <= 0) return { body: items, floating: [], dropCaps: [] };
 
   const body: RawTextItem[] = [];
   const floating: RawTextItem[] = [];
+  const dropCaps: RawTextItem[] = [];
   for (const item of items) {
-    if (sizeOf(item) <= median * SUPERSCRIPT_MAX_SIZE_RATIO) floating.push(item);
-    else body.push(item);
+    const size = sizeOf(item);
+    if (size <= median * SUPERSCRIPT_MAX_SIZE_RATIO) floating.push(item);
+    else if (
+      size >= median * DROP_CAP_MIN_SIZE_RATIO &&
+      item.text.trim().length <= DROP_CAP_MAX_CHARS
+    ) {
+      // Only a candidate: whether it really is a drop cap depends on it
+      // displacing lines, which cannot be known until the lines exist.
+      dropCaps.push(item);
+    } else body.push(item);
   }
   // Everything being "small" means the column simply is small; nothing floats.
-  return body.length === 0 ? { body: items, floating: [] } : { body, floating };
+  if (body.length === 0) return { body: items, floating: [], dropCaps: [] };
+  return { body, floating, dropCaps };
+}
+
+/**
+ * Finds the line a drop cap opens, if it is a drop cap at all.
+ *
+ * The test is displacement: the letter's box has to cover the baselines of
+ * several lines that are all indented past it. A large initial that displaces
+ * nothing is just a large initial and is left where it is.
+ */
+function findDropCapRun(item: RawTextItem, runs: RawTextItem[][]): RawTextItem[] | null {
+  const top = item.y + (item.height || sizeOf(item));
+  const spanned = runs.filter((run) => {
+    const baseline = medianOf(run.map((candidate) => candidate.y));
+    if (baseline < item.y - 1 || baseline > top) return false;
+    // Indented past the letter, which is what a drop cap forces text to do.
+    return Math.min(...run.map((candidate) => candidate.x)) > item.x;
+  });
+  if (spanned.length < DROP_CAP_MIN_SPANNED_LINES) return null;
+
+  // The first line it spans is the one it starts.
+  let best = spanned[0];
+  for (const run of spanned) {
+    if (medianOf(run.map((candidate) => candidate.y)) > medianOf(best.map((c) => c.y))) best = run;
+  }
+  return best;
 }
 
 /**
@@ -180,7 +236,7 @@ export function groupLines(
     // exist before anything is attached to them. Doing it in one pass cannot
     // work: a superscript is read before the line it sits on, because it is
     // higher up the page.
-    const { body, floating } = partitionFloatingItems(sorted);
+    const { body, floating, dropCaps } = partitionFloatingItems(sorted);
 
     const runs = groupByBaseline(body);
 
@@ -205,6 +261,17 @@ export function groupLines(
       }
     }
     runs.push(...groupByBaseline(leftovers));
+
+    // Drop caps last, so adding a 27pt letter to a line cannot disturb the size
+    // comparisons that placed the superscripts.
+    const orphanCaps: RawTextItem[] = [];
+    for (const item of dropCaps) {
+      const host = findDropCapRun(item, runs);
+      if (host) host.push(item);
+      else orphanCaps.push(item);
+    }
+    // A large initial that opens nothing keeps its own line, as it did before.
+    runs.push(...groupByBaseline(orphanCaps));
 
     for (const run of runs) {
       // Re-sorted because an attached item belongs at its own x, not at the end.
@@ -285,7 +352,18 @@ function buildLine(
   const minX = Math.min(...ordered.map((item) => item.x));
   const maxX = Math.max(...ordered.map((item) => item.x + item.width));
   const baseline = medianOf(ordered.map((item) => item.y));
-  const fontSize = medianOf(ordered.map((item) => item.fontSize || item.height || 10));
+  // Weighted by how much text each item carries, so one huge letter cannot
+  // speak for the line. An unweighted median of a drop cap and its line reported
+  // 18pt for a 10pt paragraph, which read as a font change and split the block —
+  // taking the hyphen join with it, so "meta-" and "bolic" never became
+  // "metabolic".
+  const fontSize = medianOf(
+    ordered.flatMap((item) => {
+      const size = sizeOf(item);
+      const weight = Math.max(1, item.text.trim().length);
+      return new Array(weight).fill(size) as number[];
+    }),
+  );
   const height = Math.max(...ordered.map((item) => item.height || fontSize));
 
   // Font names are per-item; the modal name describes the line.
