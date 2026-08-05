@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { collectFigures, type FigureRect } from '@/features/extraction/figures';
 import { partialMilestones } from '@/features/extraction/milestones';
 import { asset } from '@/lib/base-path';
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
@@ -47,6 +48,7 @@ const payloadOf = (result: PipelineResult): ExtractionPayload => ({
   tableRows: [...result.tableRows.entries()],
   rawItems: result.rawItems,
   bodyFontSize: result.bodyFontSize,
+  figures: [],
 });
 
 scope.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
@@ -73,12 +75,14 @@ function postPartialPass(
   documentId: string,
   pageInputs: PageExtractionInput[],
   pageCount: number,
+  figures: FigureRect[],
 ): void {
   try {
     const result = extractDocument(documentId, pageInputs);
     post({
       type: 'partial',
       ...payloadOf(result),
+      figures: [...figures],
       pagesAnalyzed: pageInputs.length,
       pagesTotal: pageCount,
     });
@@ -180,6 +184,7 @@ async function runExtraction(
     });
 
     const pageInputs: PageExtractionInput[] = [];
+    const pageFigures: FigureRect[] = [];
     const milestones = new Set(partialMilestones(pageCount));
 
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -195,6 +200,7 @@ async function runExtraction(
         const content = (await readTextContent(page)) as Awaited<
           ReturnType<typeof page.getTextContent>
         >;
+
         pageInputs.push({
           pageNumber,
           width: viewport.width,
@@ -231,11 +237,51 @@ async function runExtraction(
       });
 
       if (milestones.has(pageInputs.length) && !cancelled) {
-        postPartialPass(documentId, pageInputs, pageCount);
+        postPartialPass(documentId, pageInputs, pageCount, pageFigures);
       }
 
       // Yield so cancellation and progress messages are processed promptly.
       if (pageNumber % 5 === 0) await Promise.resolve();
+    }
+
+    // Figures are found in a SECOND pass, deliberately.
+    //
+    // `getOperatorList` costs roughly what preparing to render the page costs —
+    // on a ten-page paper it nearly tripled extraction, from about half a second
+    // to two. Doing it inside the text loop would have delayed the first
+    // readable text by that much, undoing the work that made reading start
+    // early. Text first, then pictures.
+    if (!cancelled) {
+      post({
+        type: 'progress',
+        phase: 'extracting',
+        pagesExtracted: pageCount,
+        pagesTotal: pageCount,
+        message: 'looking for figures',
+      });
+      for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+        if (cancelled) break;
+        try {
+          const page = await doc.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1 });
+          const operatorList = await page.getOperatorList();
+          pageFigures.push(
+            ...collectFigures(
+              operatorList,
+              pdfjs.OPS as unknown as Parameters<typeof collectFigures>[1],
+              pageNumber,
+              viewport.width,
+              viewport.height,
+            ),
+          );
+          page.cleanup();
+        } catch (error) {
+          // A page whose figures cannot be read still has its text. Losing the
+          // figure marker is a smaller loss than losing the page, so this is
+          // recorded and the run carries on.
+          console.warn(`[extraction] figures on page ${pageNumber} could not be read`, error);
+        }
+      }
     }
 
     // Releasing the PDF is a courtesy, not a step the result depends on. It has
@@ -267,6 +313,7 @@ async function runExtraction(
     post({
       type: 'done',
       ...payloadOf(result),
+      figures: [...pageFigures],
       pagesAnalyzed: pageInputs.length,
       pagesTotal: pageCount,
     });

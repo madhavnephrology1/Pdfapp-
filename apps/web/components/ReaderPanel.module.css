@@ -168,3 +168,16 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* A figure the reader cannot hear. Stated where it falls in the text, never
+   spoken: describing it would mean inventing words the document does not have. */
+.figureMarker {
+  margin: 1.1em 0;
+  padding: 0.55em 0.9em;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-family: var(--ui-font);
+  font-size: 0.82em;
+  letter-spacing: 0.01em;
+}

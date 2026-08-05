@@ -25,6 +25,7 @@ import {
   wordProgress,
   wordTimingsForSentence,
 } from '@/features/playback/timing';
+import { pauseBeforeNextSentence } from '@/features/playback/pacing';
 import { remapSentence } from '@/features/playback/resume';
 import { chooseDefaultVoice } from '@/features/playback/voice-choice';
 import type { ReadingQueue } from '@/features/reader/queue';
@@ -112,6 +113,8 @@ let browserHandle: { cancel: () => void } | null = null;
 let inFlight = new Map<string, AbortController>();
 let audioUrlOrder: string[] = [];
 let rafId: number | null = null;
+/** Timer for the silence between two sentences; see features/playback/pacing. */
+let pauseTimer: number | null = null;
 /** Word timings for the chunk currently loaded into the audio element. */
 let activeChunkTimings: {
   timingSource: TimingSource;
@@ -144,6 +147,20 @@ function releaseOldestAudio(states: Record<string, ChunkRuntimeState>): void {
         state.status = 'queued';
       }
     }
+  }
+}
+
+/**
+ * Cancels a pending inter-sentence pause.
+ *
+ * Every path that stops or redirects playback must call this. A pause is a
+ * scheduled call to speak the NEXT sentence, so leaving one armed means audio
+ * starting again a moment after the reader pressed stop.
+ */
+function clearPendingPause(): void {
+  if (pauseTimer !== null) {
+    window.clearTimeout(pauseTimer);
+    pauseTimer = null;
   }
 }
 
@@ -345,6 +362,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       page: sentence.pageNumber,
     });
 
+    clearPendingPause();
     browserHandle?.cancel();
     browserHandle = speakWithBrowser({
       text,
@@ -375,7 +393,23 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
             dispatch({ type: 'END_OF_QUEUE' });
             return;
           }
-          speakSentenceWithBrowser(now.queueSentences[resumeAt].id);
+          const nextSentence = now.queueSentences[resumeAt];
+          const wait = pauseBeforeNextSentence({
+            finished: sentence,
+            next: nextSentence,
+            speed: now.speed,
+          });
+          if (wait <= 0) {
+            speakSentenceWithBrowser(nextSentence.id);
+            return;
+          }
+          clearPendingPause();
+          pauseTimer = window.setTimeout(() => {
+            pauseTimer = null;
+            // The reader may have paused, stopped or seeked during the silence.
+            if (get().state !== 'playing') return;
+            speakSentenceWithBrowser(nextSentence.id);
+          }, wait);
         });
       },
       onError: (message) => dispatch({ type: 'ERROR', message }),
@@ -484,6 +518,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
    */
   const applyQueue = (queue: ReadingQueue, documentId: string): void => {
     cancelInFlight();
+    clearPendingPause();
     browserHandle?.cancel();
     stopTicker();
     chunkTimings.clear();
@@ -682,6 +717,9 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
 
     pause() {
       const state = get();
+      // Disarm before pausing: a pause pressed during the silence between two
+      // sentences must not leave a timer that speaks the next one anyway.
+      clearPendingPause();
       if (state.providerName === BROWSER_PROVIDER) pauseBrowserSpeech();
       else audioElement?.pause();
       stopTicker();
@@ -700,6 +738,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         audioElement.pause();
         audioElement.currentTime = 0;
       }
+      clearPendingPause();
       browserHandle?.cancel();
       browserHandle = null;
       stopTicker();
@@ -738,6 +777,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         page: sentence.pageNumber,
       });
 
+      clearPendingPause();
       browserHandle?.cancel();
       stopTicker();
 
@@ -812,6 +852,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       const wasPlaying = state.state === 'playing';
       const keepSentence = state.activeSentenceId;
 
+      clearPendingPause();
       browserHandle?.cancel();
       audioElement?.pause();
       stopTicker();
@@ -841,6 +882,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
 
     teardown() {
       cancelInFlight();
+      clearPendingPause();
       browserHandle?.cancel();
       cancelBrowserSpeech();
       stopTicker();

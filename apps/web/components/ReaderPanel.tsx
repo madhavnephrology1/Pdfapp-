@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { OCRPageRecord, SentenceRecord } from '@pdfreader/shared-types';
+import type { FigureRect } from '@/features/extraction/figures';
 import { splitWords } from '@/features/extraction/sentences';
 import { remainingLowConfidenceIndexes } from '@/features/ocr/items';
 import { isEstimatedTiming, timingSourceLabel } from '@/features/playback/timing';
@@ -72,6 +73,7 @@ export function ReaderPanel() {
   const rawItems = useDocumentStore((state) => state.rawItems);
   const pages = useDocumentStore((state) => state.pages);
   const progress = useDocumentStore((state) => state.progress);
+  const figures = useDocumentStore((state) => state.figures);
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -111,6 +113,41 @@ export function ReaderPanel() {
       ),
     [ocrPages],
   );
+
+  /**
+   * Which figures belong before which paragraph.
+   *
+   * A figure has a position on the page but no place in the reading order, so
+   * it is attached to the first paragraph whose region starts below it on the
+   * same page — where a reader's eye would meet it. A figure below all of a
+   * page's text attaches to nothing here and is reported at the end of that
+   * page's last paragraph instead, so it is never silently dropped.
+   */
+  const figuresBefore = useMemo(() => {
+    const byParagraph = new Map<string, FigureRect[]>();
+    if (figures.length === 0) return byParagraph;
+
+    const topOf = (regionId: string): number | null => {
+      const region = regions.find((candidate) => candidate.id === regionId);
+      const box = region?.boundingBoxes?.[0];
+      return box ? box.y + box.height : null;
+    };
+
+    for (const figure of figures) {
+      const onPage = paragraphs.filter((p) => p.pageNumber === figure.pageNumber);
+      if (onPage.length === 0) continue;
+      const figureTop = figure.y + figure.height;
+      const host =
+        onPage.find((p) => {
+          const top = topOf(p.regionId);
+          return top !== null && top < figureTop;
+        }) ?? onPage[onPage.length - 1];
+      const existing = byParagraph.get(host.paragraphId);
+      if (existing) existing.push(figure);
+      else byParagraph.set(host.paragraphId, [figure]);
+    }
+    return byParagraph;
+  }, [figures, paragraphs, regions]);
 
   if (paragraphs.length === 0) {
     // "Nothing to read" is a CONCLUSION, and it must not be stated before the
@@ -226,16 +263,28 @@ export function ReaderPanel() {
           }}
         >
           {paragraphs.map((paragraph) => (
-            <Paragraph
-              key={paragraph.paragraphId}
-              paragraph={paragraph}
-              activeSentenceId={activeSentenceId}
-              activeWordIndex={activeWordIndex}
-              estimatedWordTiming={estimated}
-              recognized={recognizedPages.get(paragraph.pageNumber) ?? null}
-              activeRef={activeRef}
-              onSelect={(id) => void seekToSentence(id)}
-            />
+            <Fragment key={paragraph.paragraphId}>
+              {(figuresBefore.get(paragraph.paragraphId) ?? []).map((figure, index) => (
+                <p
+                  key={`fig-${figure.pageNumber}-${index}`}
+                  className={styles.figureMarker}
+                  // Not spoken. Announcing it in the audio would mean adding
+                  // words the document does not contain.
+                  aria-label={`A figure appears here on page ${figure.pageNumber}. It is not described.`}
+                >
+                  Figure on page {figure.pageNumber} — not described
+                </p>
+              ))}
+              <Paragraph
+                paragraph={paragraph}
+                activeSentenceId={activeSentenceId}
+                activeWordIndex={activeWordIndex}
+                estimatedWordTiming={estimated}
+                recognized={recognizedPages.get(paragraph.pageNumber) ?? null}
+                activeRef={activeRef}
+                onSelect={(id) => void seekToSentence(id)}
+              />
+            </Fragment>
           ))}
         </article>
       </div>

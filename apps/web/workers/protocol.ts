@@ -1,3 +1,4 @@
+import type { FigureRect } from '@/features/extraction/figures';
 import type {
   DocumentRegion,
   OutlineNode,
@@ -59,6 +60,8 @@ export interface ExtractionPayload {
   /** Kept so the reader can show raw extraction beside normalized text. */
   rawItems: RawTextItem[];
   bodyFontSize: number;
+  /** Painted images, so a figure can be reported rather than passed over. */
+  figures: FigureRect[];
 }
 
 /**

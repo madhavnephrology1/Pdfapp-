@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **330** unit and integration tests in the web
+Test counts as of this revision: **346** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -27,14 +27,31 @@ is honest but not good, and it is the largest gap in reading quality.
 
 ### Images, figures and flow charts
 
-**Images are invisible to this application.** Extraction reads the PDF's text
-layer and nothing else — it never asks PDF.js for the page's drawing operations
-— so there is no image detection, no `figure` region type, no alt-text from the
-structure tree, and no generated descriptions. The reader moves from the text
-before a figure to the text after it **with no indication that anything was
-there**, which means a reader cannot distinguish "no figure" from "a figure you
-were not told about". That is the most significant thing this document does not
-do.
+**Images are found and reported, never described.** Extraction walks the page's
+drawing operations, tracks the transformation matrix through its save/restore
+stack, and records the rectangle each painted image occupies. A marker — "Figure
+on page 3 — not described" — is then shown in the reading text at the point the
+figure falls, so a reader can tell "no figure here" from "a figure you were not
+told about".
+
+Three things it deliberately does not do. It does not look at what an image
+contains: there is still no alt-text from the structure tree and no generated
+description, because a description would be words that are not in the document.
+It does not **speak** the marker, for the same reason — so **a listener who is
+not looking at the screen still learns nothing about the figure**, which is the
+real remaining gap. And it ignores anything smaller than 8% of the page's
+shorter side, because rules, bullets and spacers are painted as images too.
+
+Images that overlap are merged into one figure, since a chart is often painted
+as many tiles and reporting eleven figures where a reader sees one would be
+worse than reporting none.
+
+Figure detection runs as a **second pass, after all the text**. `getOperatorList`
+costs about what preparing to render costs — on a ten-page paper it nearly
+tripled extraction, from roughly 0.5s to 2s — so doing it inside the text loop
+would have delayed the first readable text and undone the incremental extraction
+work. A page whose drawing operations cannot be read keeps its text and loses
+only its figure markers.
 
 Figure **captions** are detected and read, and are controlled by the "captions"
 category in Custom Mode; that part works. So a figure is usually audible as its
@@ -46,11 +63,10 @@ caption and nothing else.
   layer. They are extracted and read in geometric order — top to bottom, left to
   right — which for a branching diagram is not the order the diagram means.
   Nothing marks the passage as a diagram, so it is read as though it were prose.
-- Drawn as a raster image, the labels are not in the text layer at all and the
-  whole thing is silent.
-
-Neither case is handled. Detecting image regions and saying "figure here, not
-described" where one falls is the obvious next step and is not built.
+  **This case is not handled and not detected**: a vector diagram paints no
+  image, so the figure marker does not appear for it either.
+- Drawn as a raster image, the labels are not in the text layer. The figure
+  marker now says it is there; its contents remain unavailable.
 
 ### Structured table narration
 
@@ -336,6 +352,23 @@ Four things keep this from removing real content, each with a test:
 
 `skipSuperscriptMarkers` also still matches the literal Unicode superscript
 characters (`¹²³`), which is the rarer form.
+
+### Silence between sentences
+
+The browser's speech engine fires utterances back to back with no gap, so a full
+stop was inaudible and a heading ran straight into the paragraph below it —
+reported as "doesn't indicate sentence ends". A pause is now inserted between
+sentences, longer between paragraphs and after a heading, scaled down as the
+reading speed goes up.
+
+This is **timing only**: no word, sound or punctuation is added to what is
+spoken. Every path that stops or redirects playback disarms the pending pause,
+so pressing stop during a silence cannot be followed by the next sentence
+starting anyway.
+
+The **server-audio path is untouched**. There the gap between sentences is
+whatever the provider rendered into the audio, and changing it would mean
+editing that audio.
 
 ### Fixture realism
 

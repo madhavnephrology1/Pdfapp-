@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import type { FigureRect } from '@/features/extraction/figures';
 import type {
   DocumentRegion,
   DocumentSettings,
@@ -52,6 +53,8 @@ interface DocumentState {
   paragraphs: ParagraphRecord[];
   sentences: SentenceRecord[];
   rawItems: RawTextItem[];
+  /** Painted images, so a figure is reported rather than passed over in silence. */
+  figures: FigureRect[];
   outline: OutlineNode[];
   duplicatesRemoved: number;
 
@@ -198,6 +201,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   paragraphs: [],
   sentences: [],
   rawItems: [],
+  figures: [],
   outline: [],
   duplicatesRemoved: 0,
   totalPages: 0,
@@ -258,6 +262,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       sentences: [],
       paragraphs: [],
       rawItems: [],
+      figures: [],
       outline: [],
       totalPages: 0,
       pagesAnalyzed: 0,
@@ -323,6 +328,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
             baseDocument: base,
             ...composed,
             rawItems: message.rawItems,
+            figures: message.figures,
             duplicatesRemoved: message.duplicatesRemoved,
             queue: buildReadingQueue(composed.regions, composed.sentences, state.settings),
             totalPages: message.pagesTotal || state.totalPages,
@@ -417,6 +423,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       paragraphs: [],
       sentences: [],
       rawItems: [],
+      figures: [],
       outline: [],
       duplicatesRemoved: 0,
       totalPages: 0,
