@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **324** unit and integration tests in the web
+Test counts as of this revision: **330** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -25,11 +25,32 @@ Consequence: equations laid out as ordinary text items are read as whatever
 their text layer contains, which for many PDFs is a jumble of glyph names. This
 is honest but not good, and it is the largest gap in reading quality.
 
-### Image alt text and generated descriptions
+### Images, figures and flow charts
 
-No alt-text extraction from the PDF structure tree, and no generated
-descriptions. Both settings were removed. Figure **captions** are detected and
-are controlled by the "captions" category in Custom Mode; that part works.
+**Images are invisible to this application.** Extraction reads the PDF's text
+layer and nothing else — it never asks PDF.js for the page's drawing operations
+— so there is no image detection, no `figure` region type, no alt-text from the
+structure tree, and no generated descriptions. The reader moves from the text
+before a figure to the text after it **with no indication that anything was
+there**, which means a reader cannot distinguish "no figure" from "a figure you
+were not told about". That is the most significant thing this document does not
+do.
+
+Figure **captions** are detected and read, and are controlled by the "captions"
+category in Custom Mode; that part works. So a figure is usually audible as its
+caption and nothing else.
+
+**Flow charts and diagrams divide into two cases, and one is worse:**
+
+- Drawn as vector graphics with real text labels, the labels **are** in the text
+  layer. They are extracted and read in geometric order — top to bottom, left to
+  right — which for a branching diagram is not the order the diagram means.
+  Nothing marks the passage as a diagram, so it is read as though it were prose.
+- Drawn as a raster image, the labels are not in the text layer at all and the
+  whole thing is silent.
+
+Neither case is handled. Detecting image regions and saying "figure here, not
+described" where one falls is the obvious next step and is not built.
 
 ### Structured table narration
 
@@ -236,12 +257,24 @@ voice when a speech provider is set up, then **the voice the operating system
 itself reports as the user's default**, then an on-device voice in the page's
 language, then whatever came first.
 
-The system-default signal is `SpeechSynthesisVoice.default`, reported by the
-platform. What is **not** verified: whether iOS Safari exposes a downloaded
-Premium or Enhanced voice as a separate entry, exposes it under the plain name,
-or marks it default at all. There is no WebKit build in this environment to
-check, and the behaviour differs between platforms. If the automatic choice is
-wrong the dropdown still overrides it, and that choice now persists.
+Two things about iOS are now known from a report sent back by a real iPhone
+(iOS 18.7 / Safari 26.5), rather than assumed:
+
+- **Safari does not expose downloaded Premium or Enhanced voices to web pages.**
+  All 68 voices offered were the compact system set; a Premium voice installed
+  and selected in iOS Settings did not appear at all. No selection logic here
+  can choose a voice the browser never offers, and nothing in the interface
+  claims otherwise.
+- **Every voice is flagged as the system default.** `SpeechSynthesisVoice.default`
+  was true for all 68, which makes it a constant and therefore no evidence. The
+  ranking now ignores the flag entirely unless the platform marks _some_ voices
+  and not others.
+
+Selection also **never picks a novelty voice automatically** — Apple ships
+nineteen of them (Bahh, Zarvox, Bad News…) with the same language tag and flags
+as Samantha, and the API offers no way to tell them apart, so they are matched
+by name. They remain in the picker and can still be chosen deliberately; the
+picker groups them under their own heading rather than hiding them.
 
 The voice list is also **re-read whenever the platform changes it**, not only at
 mount. Reading once was wrong on iOS, which populates the list asynchronously
@@ -277,7 +310,7 @@ size vertically, and it must be horizontally within the line's own span.
 An item that attaches to nothing is grouped with its own neighbours exactly as
 before. The first version of this isolated each one instead, which **broke
 running-header detection**: a header set smaller than the body is entirely
-"floating", so "Journal of Clinical Nephrology    Vol. 12, No. 4" became two
+"floating", so "Journal of Clinical Nephrology Vol. 12, No. 4" became two
 lines, stopped matching as repeated furniture, and was read aloud on every page.
 The unit tests did not catch it and the end-to-end suite did — it has a unit
 test of its own now.

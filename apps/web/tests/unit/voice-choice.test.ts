@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { chooseDefaultVoice, type VoiceLike } from '@/features/playback/voice-choice';
+import {
+  chooseDefaultVoice,
+  isNoveltyVoice,
+  type VoiceLike,
+} from '@/features/playback/voice-choice';
 
 const browserVoice = (over: Partial<VoiceLike> & { id: string; name: string }): VoiceLike => ({
   language: 'en-US',
@@ -113,5 +117,110 @@ describe('chooseDefaultVoice', () => {
 
   it('returns null when there are no voices at all', () => {
     expect(chooseDefaultVoice({ ...base, voices: [] })).toBeNull();
+  });
+
+  /**
+   * The list an iPhone on iOS 18.7 actually reports, reduced to its shape: 68
+   * voices, no Premium or Enhanced entry at all, and EVERY voice flagged as the
+   * system default. That last part made the strongest signal in the ranking a
+   * constant, so it decided nothing.
+   */
+  const iosVoices: VoiceLike[] = [
+    browserVoice({
+      id: 'rishi',
+      name: 'Rishi',
+      language: 'en-IN',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'daniel',
+      name: 'Daniel',
+      language: 'en-GB',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'karen',
+      name: 'Karen',
+      language: 'en-AU',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'samantha',
+      name: 'Samantha',
+      language: 'en-US',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'bahh',
+      name: 'Bahh',
+      language: 'en-US',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'zarvox',
+      name: 'Zarvox',
+      language: 'en-US',
+      systemDefault: true,
+      onDevice: true,
+    }),
+    browserVoice({
+      id: 'kyoko',
+      name: 'Kyoko',
+      language: 'ja-JP',
+      systemDefault: true,
+      onDevice: true,
+    }),
+  ];
+
+  it('ignores the default flag when every voice claims it', () => {
+    // en-GB asked for, so the British voice must win rather than the first entry.
+    const chosen = chooseDefaultVoice({ ...base, voices: iosVoices, preferredLanguage: 'en-GB' });
+    expect(chosen?.id).toBe('daniel');
+  });
+
+  it('never chooses a novelty voice automatically', () => {
+    const chosen = chooseDefaultVoice({
+      ...base,
+      voices: iosVoices,
+      preferredLanguage: 'en-US',
+    });
+    expect(chosen?.id).toBe('samantha');
+    expect(['bahh', 'zarvox']).not.toContain(chosen?.id);
+  });
+
+  it('still speaks if a novelty voice is somehow all there is', () => {
+    const voices = [browserVoice({ id: 'boing', name: 'Boing', onDevice: true })];
+    expect(chooseDefaultVoice({ ...base, voices })?.id).toBe('boing');
+  });
+
+  it('prefers an exact locale over the language alone', () => {
+    const voices = [
+      browserVoice({ id: 'us', name: 'Samantha', language: 'en-US', onDevice: true }),
+      browserVoice({ id: 'gb', name: 'Daniel', language: 'en-GB', onDevice: true }),
+    ];
+    expect(chooseDefaultVoice({ ...base, voices, preferredLanguage: 'en-GB' })?.id).toBe('gb');
+    expect(chooseDefaultVoice({ ...base, voices, preferredLanguage: 'en-US' })?.id).toBe('us');
+  });
+
+  it('still honours a real system default where the platform reports just one', () => {
+    const voices = [
+      browserVoice({ id: 'a', name: 'Alpha', onDevice: true }),
+      browserVoice({ id: 'b', name: 'Beta', onDevice: true, systemDefault: true }),
+    ];
+    expect(chooseDefaultVoice({ ...base, voices })?.id).toBe('b');
+  });
+
+  it('recognises the joke voices and leaves real ones alone', () => {
+    expect(isNoveltyVoice({ name: 'Zarvox' })).toBe(true);
+    expect(isNoveltyVoice({ name: 'Bad News' })).toBe(true);
+    expect(isNoveltyVoice({ name: 'Samantha' })).toBe(false);
+    expect(isNoveltyVoice({ name: 'Rishi' })).toBe(false);
+    // A server voice is never judged by this list.
+    expect(isNoveltyVoice({ name: 'Whisper', source: 'server' })).toBe(false);
   });
 });

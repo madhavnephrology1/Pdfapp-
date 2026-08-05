@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { isBusy, isPlaying } from '@/features/playback/machine';
 import { estimateRemainingSeconds, formatTime } from '@/features/playback/timing';
+import { isNoveltyVoice } from '@/features/playback/voice-choice';
 import { SPEED_OPTIONS } from '@/features/settings/defaults';
 import { useDocumentStore } from '@/stores/document-store';
 import { usePlaybackStore } from '@/stores/playback-store';
@@ -53,6 +54,26 @@ export function PlayerBar() {
     const candidates = outline.filter((node) => node.pageNumber <= activePage);
     return candidates.length > 0 ? candidates[candidates.length - 1].title : null;
   }, [outline, activePage]);
+
+  // Reading voices in the page's own language first, then other languages, then
+  // the joke and legacy voices — labelled, not hidden.
+  const browserVoiceGroups = useMemo(() => {
+    const browser = voices.filter((voice) => voice.source === 'browser');
+    const language = (typeof navigator === 'undefined' ? 'en' : navigator.language)
+      .slice(0, 2)
+      .toLowerCase();
+
+    const novelty = browser.filter((voice) => isNoveltyVoice(voice));
+    const usable = browser.filter((voice) => !isNoveltyVoice(voice));
+    const matching = usable.filter((voice) => voice.language.toLowerCase().startsWith(language));
+    const others = usable.filter((voice) => !voice.language.toLowerCase().startsWith(language));
+
+    return [
+      { label: 'Voices for reading', voices: matching },
+      { label: 'Other languages', voices: others },
+      { label: 'Novelty and legacy voices', voices: novelty },
+    ].filter((group) => group.voices.length > 0);
+  }, [voices]);
 
   const browserEngine = playback.providerName === 'browser';
 
@@ -203,15 +224,19 @@ export function PlayerBar() {
                   ))}
               </optgroup>
             )}
-            <optgroup label="Your browser's voices">
-              {voices
-                .filter((voice) => voice.source === 'browser')
-                .map((voice) => (
+            {/* A phone offers 68 of these, nineteen of which are joke voices
+                sitting between Samantha and Tessa with nothing to mark them.
+                Grouping them keeps the list usable without removing anything:
+                every voice the platform offers is still here. */}
+            {browserVoiceGroups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.voices.map((voice) => (
                   <option key={voice.id} value={voice.id}>
                     {voice.name} ({voice.language})
                   </option>
                 ))}
-            </optgroup>
+              </optgroup>
+            ))}
           </select>
 
           <label className="sr-only" htmlFor="speed-select">
