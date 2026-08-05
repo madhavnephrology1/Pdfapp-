@@ -146,3 +146,24 @@
   margin: 0;
   color: var(--text-muted);
 }
+
+.voiceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.voiceReport {
+  margin: 12px 0 0;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  font-family: var(--mono-font);
+  font-size: 12px;
+  line-height: 1.55;
+  /* A long user-agent string must not push the panel sideways on a phone. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

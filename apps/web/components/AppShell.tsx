@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { subscribeToVoiceChanges } from '@/lib/browser-tts';
 import { savePosition } from '@/lib/persistence';
 import { useDocumentStore } from '@/stores/document-store';
 import { usePlaybackStore } from '@/stores/playback-store';
@@ -45,10 +46,17 @@ export function AppShell() {
 
   useKeyboardShortcuts(status === 'ready' && !settingsOpen && !reviewOpen);
 
-  // Load the voice list once, so the player is usable as soon as text is ready.
+  // Load the voice list, so the player is usable as soon as text is ready — and
+  // keep listening, because the platform's list is not final at mount. iOS
+  // populates it asynchronously and changes it again when a voice finishes
+  // downloading or the system voice is switched while this page is open.
   useEffect(() => {
     void playback.loadVoices();
-    return () => playback.teardown();
+    const unsubscribe = subscribeToVoiceChanges(() => void playback.loadVoices());
+    return () => {
+      unsubscribe();
+      playback.teardown();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

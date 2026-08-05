@@ -56,6 +56,23 @@ export function listBrowserVoices(timeoutMs = 2000): Promise<TTSVoice[]> {
   });
 }
 
+/**
+ * Calls back whenever the platform's voice list changes.
+ *
+ * `listBrowserVoices` resolves once and then stops listening, which is right
+ * for a promise and wrong for the platform: iOS in particular populates its
+ * list asynchronously and can change it again afterwards — a downloaded voice
+ * finishing, or the system voice being switched in Settings while the page is
+ * open. Read once at mount and a voice added later is simply never seen.
+ *
+ * Returns an unsubscribe function.
+ */
+export function subscribeToVoiceChanges(onChanged: () => void): () => void {
+  if (!isBrowserSpeechAvailable()) return () => {};
+  window.speechSynthesis.addEventListener('voiceschanged', onChanged);
+  return () => window.speechSynthesis.removeEventListener('voiceschanged', onChanged);
+}
+
 export interface BrowserSpeakOptions {
   text: string;
   voiceId: string | null;

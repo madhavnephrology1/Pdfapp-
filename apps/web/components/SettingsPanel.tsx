@@ -9,15 +9,20 @@ import {
   OCR_RENDER_SCALE_OPTIONS,
   TEXT_WIDTH_RANGE,
 } from '@/features/settings/defaults';
+import { formatVoiceDiagnostics } from '@/features/playback/voice-diagnostics';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAllStoredData, estimateStorageUsage } from '@/lib/persistence';
 import { clearServerAudioCache, fetchHealth, type ServerHealth } from '@/lib/tts-client';
 import { useDocumentStore } from '@/stores/document-store';
+import { usePlaybackStore } from '@/stores/playback-store';
 import styles from './SettingsPanel.module.css';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { settings, setSettings } = useDocumentStore();
   const { theme, setTheme } = useTheme();
+  const playback = usePlaybackStore();
+  const [voiceReportOpen, setVoiceReportOpen] = useState(false);
+  const [voiceCopied, setVoiceCopied] = useState<'idle' | 'done' | 'failed'>('idle');
   const [health, setHealth] = useState<ServerHealth | null>(null);
   const [storage, setStorage] = useState<{
     usedBytes: number;
@@ -32,6 +37,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   const { reader, citations, tables } = settings;
   const strict = settings.readingMode === 'strict-verbatim';
+
+  const voiceReport = formatVoiceDiagnostics({
+    voices: playback.voices,
+    selectedVoiceId: playback.voiceId,
+    speechAvailable: typeof window !== 'undefined' && 'speechSynthesis' in window,
+    serverConfigured: playback.serverConfigured,
+    serverProviderName: playback.serverProviderName,
+    userAgent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
+  });
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Settings">
@@ -231,6 +245,48 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 Mode.
               </p>
             </div>
+          </section>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Voices</h3>
+
+            <p className="hint">
+              {playback.voices.length === 0
+                ? 'This browser is offering no voices at all yet. On some phones the list arrives a moment after the page loads.'
+                : `${playback.voices.length} voice(s) available. The voice is chosen in the player bar, and your choice is remembered.`}
+            </p>
+            {/* Which voice a browser exposes, and whether it marks one as the
+                device's own, differs between platforms and cannot be checked
+                from the other end. This says exactly what this device reports,
+                so a voice that is missing can be seen to be missing. */}
+            <div className={styles.voiceActions}>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => setVoiceReportOpen((open) => !open)}
+              >
+                {voiceReportOpen ? 'Hide voice details' : 'Show voice details'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  navigator.clipboard
+                    ?.writeText(voiceReport)
+                    .then(() => setVoiceCopied('done'))
+                    .catch(() => setVoiceCopied('failed'));
+                }}
+              >
+                Copy voice details
+              </button>
+              {voiceCopied === 'done' && <span className="hint">Copied.</span>}
+              {voiceCopied === 'failed' && (
+                <span className="hint">
+                  This browser refused the clipboard — read the details below instead.
+                </span>
+              )}
+            </div>
+            {voiceReportOpen && <pre className={styles.voiceReport}>{voiceReport}</pre>}
           </section>
 
           <section className={styles.section}>

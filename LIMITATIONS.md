@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **305** unit and integration tests in the web
+Test counts as of this revision: **311** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -242,6 +242,16 @@ Premium or Enhanced voice as a separate entry, exposes it under the plain name,
 or marks it default at all. There is no WebKit build in this environment to
 check, and the behaviour differs between platforms. If the automatic choice is
 wrong the dropdown still overrides it, and that choice now persists.
+
+The voice list is also **re-read whenever the platform changes it**, not only at
+mount. Reading once was wrong on iOS, which populates the list asynchronously
+and changes it again when a download finishes or the system voice is switched
+while the page is open — a voice added after load was simply never seen.
+
+Settings carries a **voice report** for the same reason the reader panel carries
+an extraction one: the device where this goes wrong is a phone with no console.
+It lists every voice the platform offered with the flags it reported, and says
+which one is speaking.
 
 "Premium" and "Enhanced" in a voice name set the `neural` flag, which is a
 **name heuristic** — the Web Speech API reports no quality field. It only
