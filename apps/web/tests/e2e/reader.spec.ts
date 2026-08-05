@@ -365,6 +365,28 @@ test.describe('persistence', () => {
       .evaluate((el) => getComputedStyle(el).fontSize);
     expect(parseFloat(size)).toBeCloseTo(28, 0);
   });
+
+  test('the chosen voice survives a reload', async ({ page }) => {
+    await upload(page, 'single-page');
+    const voice = page.getByTitle('Voice');
+    const options = await voice.locator('option').all();
+    const values = (await Promise.all(options.map((o) => o.getAttribute('value')))).filter(
+      (v): v is string => Boolean(v),
+    );
+    // Needs a second voice to switch to; with only one there is nothing to prove.
+    test.skip(values.length < 2, 'only one voice available in this environment');
+
+    const current = await voice.inputValue();
+    const other = values.find((value) => value !== current);
+    await voice.selectOption(other!);
+    await expect(voice).toHaveValue(other!);
+
+    // The voice was not remembered at all before; a reload silently reset it to
+    // whichever voice the platform happened to enumerate first.
+    await page.reload();
+    await upload(page, 'single-page');
+    await expect(page.getByTitle('Voice')).toHaveValue(other!);
+  });
 });
 
 test.describe('accessibility', () => {

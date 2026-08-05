@@ -28,7 +28,14 @@ export function listBrowserVoices(timeoutMs = 2000): Promise<TTSVoice[]> {
       name: voice.name,
       language: voice.lang,
       provider: BROWSER_PROVIDER,
-      neural: false,
+      // Platforms name their higher-quality downloads in the voice name —
+      // "Zoe (Premium)", "Daniel (Enhanced)". There is no API flag for it, so
+      // the name is the only signal there is. A platform that names them
+      // differently simply does not match, and nothing is claimed about it.
+      neural: /\((?:premium|enhanced|neural)\)/i.test(voice.name),
+      // Both come straight from the platform rather than being inferred.
+      systemDefault: voice.default,
+      onDevice: voice.localService,
     }));
 
   const existing = window.speechSynthesis.getVoices();

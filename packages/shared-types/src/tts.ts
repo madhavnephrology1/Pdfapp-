@@ -10,6 +10,19 @@ export interface TTSVoice {
   /** True when the provider markets this as a neural / premium voice. */
   neural?: boolean;
   previewUrl?: string;
+  /**
+   * True when the operating system reports this as the user's own default
+   * voice. Only browser voices can set this; it is the strongest signal
+   * available about which voice a person actually wants to hear, because they
+   * chose it themselves in their system settings.
+   */
+  systemDefault?: boolean;
+  /**
+   * True when speech is generated on the device. False means the text of the
+   * passage is sent to the platform's servers to be spoken, which the privacy
+   * notice states and which is worth preferring against.
+   */
+  onDevice?: boolean;
 }
 
 export interface TTSRequest {

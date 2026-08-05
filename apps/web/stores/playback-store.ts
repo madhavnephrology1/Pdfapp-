@@ -26,6 +26,7 @@ import {
   wordTimingsForSentence,
 } from '@/features/playback/timing';
 import { remapSentence } from '@/features/playback/resume';
+import { chooseDefaultVoice } from '@/features/playback/voice-choice';
 import type { ReadingQueue } from '@/features/reader/queue';
 import {
   BROWSER_PROVIDER,
@@ -42,6 +43,7 @@ import {
   synthesizeChunk,
   TTSClientError,
 } from '@/lib/tts-client';
+import { loadVoicePreference, saveVoicePreference } from '@/lib/voice-preference';
 
 /**
  * Playback engine.
@@ -610,12 +612,14 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         ...browser.map((voice) => ({ ...voice, source: 'browser' as const })),
       ];
 
-      const preferred =
-        server?.configured && server.defaultVoiceId
-          ? options.find((voice) => voice.id === server.defaultVoiceId)
-          : (options.find(
-              (voice) => voice.source === 'browser' && voice.language.startsWith('en'),
-            ) ?? options[0]);
+      const preferred = chooseDefaultVoice({
+        voices: options,
+        savedVoiceId: get().voiceId ?? loadVoicePreference(),
+        serverDefaultVoiceId: server?.defaultVoiceId ?? null,
+        serverConfigured: Boolean(server?.configured),
+        preferredLanguage:
+          typeof navigator === 'undefined' ? undefined : (navigator.language ?? undefined),
+      });
 
       set({
         voices: options,
@@ -624,10 +628,9 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
         serverProviderName: server?.provider ?? null,
         serverSupportsWordTiming: Boolean(server?.capabilities?.supportsWordTiming),
         maxCharsPerChunk: server?.capabilities?.maxCharsPerChunk ?? 2500,
-        voiceId: get().voiceId ?? preferred?.id ?? null,
+        voiceId: preferred?.id ?? null,
         providerName:
-          get().providerName ??
-          (preferred?.source === 'server' ? (server?.provider ?? null) : BROWSER_PROVIDER),
+          preferred?.source === 'server' ? (server?.provider ?? null) : BROWSER_PROVIDER,
         wordTimingSource: server?.capabilities?.supportsWordTiming ? 'provider-exact' : 'estimated',
       });
     },
@@ -799,6 +802,10 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => {
       const state = get();
       const voice = state.voices.find((candidate) => candidate.id === voiceId);
       if (!voice) return;
+
+      // Remember it, so the next visit speaks in the voice that was chosen
+      // rather than resetting to whichever voice the platform lists first.
+      saveVoicePreference(voiceId);
 
       const provider =
         voice.source === 'server' ? (state.serverProviderName ?? 'server') : BROWSER_PROVIDER;

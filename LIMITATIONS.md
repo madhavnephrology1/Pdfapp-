@@ -4,8 +4,8 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **294** unit and integration tests in the web
-app, **108** in the API, and **30** end-to-end tests in Chromium.
+Test counts as of this revision: **305** unit and integration tests in the web
+app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
 
@@ -226,6 +226,26 @@ What this does **not** cover: contrast of text drawn over the rendered PDF page
 itself, which is whatever the document's own colours are; and non-colour
 accessibility — focus order, target size, motion — which is unchanged from
 before and was never measured.
+
+### Which voice speaks by default
+
+The default is chosen by ranking evidence, strongest first: a voice the reader
+picked before (now remembered in localStorage — it was not remembered at all
+previously, so every reload silently reset it), then the server's configured
+voice when a speech provider is set up, then **the voice the operating system
+itself reports as the user's default**, then an on-device voice in the page's
+language, then whatever came first.
+
+The system-default signal is `SpeechSynthesisVoice.default`, reported by the
+platform. What is **not** verified: whether iOS Safari exposes a downloaded
+Premium or Enhanced voice as a separate entry, exposes it under the plain name,
+or marks it default at all. There is no WebKit build in this environment to
+check, and the behaviour differs between platforms. If the automatic choice is
+wrong the dropdown still overrides it, and that choice now persists.
+
+"Premium" and "Enhanced" in a voice name set the `neural` flag, which is a
+**name heuristic** — the Web Speech API reports no quality field. It only
+affects ranking; nothing in the interface claims a voice is high quality.
 
 ### Fixture realism
 
