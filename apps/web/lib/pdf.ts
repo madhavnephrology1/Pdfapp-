@@ -43,6 +43,57 @@ export async function loadPdfjs(): Promise<PdfjsModule> {
   return pdfjsPromise;
 }
 
+/** The shape `PDFPageProxy.getTextContent()` resolves to. */
+export interface TextContentLike {
+  items: unknown[];
+  styles: Record<string, unknown>;
+  lang: string | null;
+}
+
+/** The part of `PDFPageProxy` this needs; typed here to avoid importing it. */
+interface TextStreamingPage {
+  streamTextContent: (params?: Record<string, unknown>) => ReadableStream<{
+    items: unknown[];
+    styles: Record<string, unknown>;
+    lang: string | null;
+  }>;
+}
+
+/**
+ * Reads a page's text content without `for await ... of` on a ReadableStream.
+ *
+ * PDF.js's own `getTextContent()` iterates the stream that way, which needs
+ * `ReadableStream.prototype[Symbol.asyncIterator]`. **Safari does not implement
+ * it**, so on iOS every call throws `undefined is not a function` before a
+ * single text item is read, and the document reports no readable text. That was
+ * observed on iOS 18.7 / Safari 26.5: fifteen of fifteen pages failed with that
+ * message while the same file read normally in Chromium.
+ *
+ * This reads the same stream through a reader and assembles the result exactly
+ * as PDF.js does — first `lang` wins, styles merge, items append in order — so
+ * the text is byte-for-byte what `getTextContent()` would have returned.
+ */
+export async function readTextContent(
+  page: unknown,
+  params?: Record<string, unknown>,
+): Promise<TextContentLike> {
+  const stream = (page as TextStreamingPage).streamTextContent(params);
+  const reader = stream.getReader();
+  const content: TextContentLike = { items: [], styles: Object.create(null), lang: null };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      content.lang ??= value.lang;
+      Object.assign(content.styles, value.styles);
+      content.items.push(...value.items);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return content;
+}
+
 export class PdfLoadError extends Error {
   constructor(
     message: string,

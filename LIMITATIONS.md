@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **288** unit and integration tests in the web
+Test counts as of this revision: **294** unit and integration tests in the web
 app, **108** in the API, and **30** end-to-end tests in Chromium.
 
 ---
@@ -305,11 +305,29 @@ deleting the emitted `pdf.worker.*.mjs` from the served directory leaves the
 document reading normally, and removing the import as well makes it fail to open
 at all.
 
-End-to-end tests run in Chromium only. **Firefox and Safari are untested**, and
-one reported failure on iOS Safari — the document reports every page extracted
-and then produces no reading text — is **unresolved and has never been
-reproduced here**. No WebKit build is available in this environment and the
-network policy blocks reaching the deployed site, so nothing about that report
-has been confirmed or ruled out. The failure states in the reader panel carry a
-diagnostic report (counts, per-page failure reasons, the browser string, and no
-document text) so a phone can say what happened without a developer console.
+### Safari cannot run PDF.js's own `getTextContent()`
+
+`PDFPageProxy.getTextContent()` reads its result with `for await (const value of
+readableStream)`. That needs `ReadableStream.prototype[Symbol.asyncIterator]`,
+which **Safari does not implement**. Every call therefore throws `undefined is
+not a function` before a single text item is read.
+
+This was not theoretical. On iOS 18.7 / Safari 26.5 all fifteen pages of a
+document failed with that message, while the same file read normally in
+Chromium — reported from the phone by the diagnostic panel described below.
+`readTextContent` in `lib/pdf.ts` reads the same stream through
+`getReader()` and assembles the result the way PDF.js does, so extraction no
+longer depends on that platform feature. The extraction worker and the test
+helper both use it, so the tested path and the shipped path cannot drift apart.
+
+**Still unconfirmed on the device.** The fix is verified by unit tests against a
+stream that deliberately has no async iterator, and by the integration suite
+extracting real fixtures through it, but no WebKit build is available in this
+environment and the network policy blocks reaching the deployed site. Whether
+anything *else* also fails on iOS is unknown.
+
+End-to-end tests run in Chromium only. **Firefox and Safari remain untested**
+here. The failure states in the reader panel carry a diagnostic report — page
+counts, distinct per-page failure reasons, the last worker message and the
+browser string, and no document text — so a phone can say what happened without
+a developer console. That report is what identified the bug above.

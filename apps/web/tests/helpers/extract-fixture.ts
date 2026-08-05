@@ -1,5 +1,6 @@
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
 import type { ExtractionResult } from '@/features/extraction/pipeline';
+import { readTextContent } from '@/lib/pdf';
 import { loadPdfInNode } from './node-pdf';
 
 /**
@@ -21,7 +22,11 @@ export async function readPageInputs(bytes: Uint8Array): Promise<PageExtractionI
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
       const page = await doc.getPage(pageNumber);
       const viewport = page.getViewport({ scale: 1 });
-      const content = await page.getTextContent();
+      // The same reader the browser worker uses, so the tested path and
+      // the shipped path cannot drift apart.
+      const content = (await readTextContent(page)) as Awaited<
+        ReturnType<typeof page.getTextContent>
+      >;
       pageInputs.push({
         pageNumber,
         width: viewport.width,

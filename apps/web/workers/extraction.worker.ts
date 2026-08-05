@@ -3,7 +3,7 @@
 import { partialMilestones } from '@/features/extraction/milestones';
 import { asset } from '@/lib/base-path';
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
-import { PDF_WORKER_SRC, PdfLoadError, toPdfLoadError } from '@/lib/pdf';
+import { PDF_WORKER_SRC, PdfLoadError, readTextContent, toPdfLoadError } from '@/lib/pdf';
 import type { ExtractionPayload, WorkerRequest, WorkerResponse } from './protocol';
 
 /**
@@ -190,7 +190,11 @@ async function runExtraction(
       try {
         const page = await doc.getPage(pageNumber);
         const viewport = page.getViewport({ scale: 1 });
-        const content = await page.getTextContent();
+        // Not `page.getTextContent()` — see readTextContent for why that call
+        // cannot complete in Safari.
+        const content = (await readTextContent(page)) as Awaited<
+          ReturnType<typeof page.getTextContent>
+        >;
         pageInputs.push({
           pageNumber,
           width: viewport.width,
