@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **311** unit and integration tests in the web
+Test counts as of this revision: **316** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -256,6 +256,35 @@ which one is speaking.
 "Premium" and "Enhanced" in a voice name set the `neural` flag, which is a
 **name heuristic** — the Web Speech API reports no quality field. It only
 affects ranking; nothing in the interface claims a voice is high quality.
+
+### Superscript citation markers are shown, and still spoken
+
+A superscript is set smaller than the body and lifted above its baseline, so
+grouping lines by baseline alone gave it a line of its own. When it landed
+between two body lines it became its own **paragraph**, cutting a sentence into
+three on screen: "…such as small cell" / "3-5" / "carcinoma, breast cancer…".
+Line grouping now reattaches an item that is materially smaller than a
+neighbouring line and sits within a superscript's rise or a subscript's drop of
+that line's baseline, at its own horizontal position. On one real journal PDF
+this took the page count of paragraphs from 165 to 60 and sentences from 486 to
+328 — all of them fragments that had been split off markers.
+
+Three guards keep it from over-merging, and each has a test: the item must be
+smaller than the line it joins (so a uniformly small footnote or caption block
+has nothing floating in it), it must sit within a fraction of that line's font
+size vertically, and it must be horizontally within the line's own span. A
+marker with no line to belong to keeps its own line rather than being dropped.
+
+**What still is not done:** the marker is read aloud. `skipSuperscriptMarkers`
+exists as a setting but its detector only matches Unicode superscript
+characters (`¹²³`), and a typographic superscript is ordinary digits made small
+and raised — so the setting never fires on the common case. Skipping them
+properly needs the offset of each superscript run inside the sentence;
+`SentenceRecord` carries `sourceTextItemIds` but not per-character spans, so
+that mapping does not exist yet. It was **not** approximated with a text pattern
+on purpose: a rule like "digits glued to the previous word" also matches `H2O`
+and would silently drop real content, which is exactly what this application
+must never do.
 
 ### Fixture realism
 
