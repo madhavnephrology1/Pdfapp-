@@ -57,7 +57,7 @@
 
 .progressFill {
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-fill);
   transition: width 0.25s ease;
 }
 
@@ -142,6 +142,7 @@
 }
 
 .searchCount {
+  font-variant-numeric: tabular-nums;
   margin: 6px 0 0;
   font-size: 11.5px;
   color: var(--text-faint);
@@ -223,9 +224,9 @@
 }
 
 .pageButtonActive {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-contrast);
-  border-color: var(--accent);
+  border-color: var(--accent-fill);
 }
 
 .scanDot {

@@ -262,7 +262,7 @@ export function PlayerBar() {
             · Sentence {position + 1} of {playback.queueSentences.length}
           </>
         )}
-        {browserEngine && <> · Using your browser&apos;s built-in voice</>}
+        {browserEngine && <> · Using your browser’s built-in voice</>}
       </p>
     </div>
   );

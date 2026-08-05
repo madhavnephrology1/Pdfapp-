@@ -1,30 +1,49 @@
 /*
  * Design tokens and base styles.
  *
- * Colours are chosen to meet WCAG 2.2 AA contrast in both themes. Focus states
- * are always visible and are never removed.
+ * Two grounds, one system — the "Daylight" and "Nightfall" style sheets.
+ * Daylight is a white/off-white ground with slate neutrals and a single rose
+ * accent; Nightfall is a pure-black OLED ground where elevation is white laid
+ * over black at 4 / 8 / 12%.
+ *
+ * Every colour here meets WCAG 2.2 AA (4.5:1 for text, 3:1 for non-text) against
+ * EVERY ground it can land on — --bg, --surface and --surface-2 — not just the
+ * lightest one. Two values differ from the published sheets for exactly that
+ * reason, and the reason is written next to them rather than left to be
+ * rediscovered. Focus states are always visible and are never removed.
  */
 
 :root {
   color-scheme: light;
 
-  --bg: #f6f6f4;
+  /* Daylight */
+  --bg: #f4f3f1;
   --surface: #ffffff;
-  --surface-2: #eeeeec;
-  --border: #d6d5d0;
-  --border-strong: #b3b1aa;
+  --surface-2: #edebe8;
+  --border: #e4e2de;
+  /* Hairline rules and panel edges are decorative and stay as the sheet drew
+     them. --border-strong is different: it is the visible boundary of inputs,
+     selects, the page frame and the secondary button, whose fill barely differs
+     from the page behind it. That makes it a control boundary under WCAG 1.4.11
+     and it has to clear 3:1 on every ground, which the sheet's #CFCDC8 (1.34:1)
+     does not. Darkened until it does. */
+  --border-strong: #87847c;
 
-  --text: #1c1b19;
-  --text-muted: #56534d;
-  --text-faint: #74716a;
+  --text: #16181d;
+  --text-muted: #4e5865;
+  --text-faint: #5f6775;
 
-  --accent: #1c4f8b;
+  /* The sheet's rose is #E11D62, which clears 4.5:1 on white but only reaches
+     3.88:1 on --surface-2. This is that rose taken down far enough to pass on
+     all three grounds (4.79:1 at worst), with white on it at 5.70:1. */
+  --accent: #c81454;
+  --accent-fill: #c81454;
   --accent-contrast: #ffffff;
-  --accent-soft: #dce8f6;
+  --accent-soft: #fbe6ee;
 
   --highlight-sentence: #fdf0c8;
   --highlight-word: #f5c65c;
-  --highlight-source: rgba(28, 79, 139, 0.18);
+  --highlight-source: rgba(200, 20, 84, 0.16);
 
   --warn: #8a5a00;
   --warn-soft: #fdf1d8;
@@ -32,14 +51,19 @@
   --danger-soft: #fbe4e4;
   --ok: #2f6b3a;
 
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.05);
+  /* Pills for anything that acts on press; a gentler radius for anything that
+     holds content. */
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 14px rgba(0, 0, 0, 0.05);
 
+  /* The reading text stays a serif deliberately. The style sheets specify the
+     geometric sans for the INTERFACE; a document read end to end for
+     comprehension is not interface, and Outfit is not a text face. */
   --reader-font: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-  --ui-font:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --mono-font: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --ui-font: var(--font-ui), system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --player-height: 84px;
 }
@@ -47,51 +71,70 @@
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #16171a;
-  --surface: #1e2024;
-  --surface-2: #26282d;
-  --border: #383b42;
-  --border-strong: #4d515a;
+  /* Nightfall — elevation is white over black, not a lighter grey palette. */
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #141414;
+  --border: #242424;
+  /* Same rule on black: 10% white is a hairline, not a boundary someone can
+     find. Controls get a border that clears 3:1 against the ground. */
+  --border-strong: #666666;
 
-  --text: #eceef1;
-  --text-muted: #b6bac1;
-  --text-faint: #9096a0;
+  /* 87% / ~64% / ~55% white. The sheet's third step is 38%, which is a DISABLED
+     level and fails 4.5:1 on a raised surface; --text-faint carries real prose
+     here (hints, field labels), so it sits at a level that passes. 38% survives
+     as the disabled state on .btn:disabled. */
+  --text: #dedede;
+  --text-muted: #a3a3a3;
+  --text-faint: #8c8c8c;
 
-  --accent: #8ab4f8;
-  --accent-contrast: #10233d;
-  --accent-soft: #23324a;
+  /* Split on purpose: the vibrant blue is a FILL, and it does not clear 4.5:1
+     as text on black. --accent is the tint used for text and strokes (8.09:1);
+     --accent-fill is the button ground, deepened from the sheet's #3B6FFF so
+     white on it reaches 4.92:1 rather than 4.28:1. */
+  --accent: #7fa3ff;
+  --accent-fill: #3465f0;
+  --accent-contrast: #ffffff;
+  --accent-soft: #16203a;
 
-  --highlight-sentence: #3b3520;
+  --highlight-sentence: #35301c;
   --highlight-word: #8a7327;
-  --highlight-source: rgba(138, 180, 248, 0.22);
+  --highlight-source: rgba(127, 163, 255, 0.22);
 
   --warn: #e0b354;
-  --warn-soft: #332c17;
+  --warn-soft: #2a2413;
   --danger: #f4a2a2;
-  --danger-soft: #3a2020;
+  --danger-soft: #33191a;
   --ok: #8bd39b;
 }
 
 [data-theme='sepia'] {
   color-scheme: light;
 
+  /* A reading-comfort ground, kept because people use it. Retuned to sit in the
+     same system: the same slate-derived structure, the accent shifted into the
+     warm ground rather than left as an orphan blue. */
   --bg: #efe6d6;
   --surface: #faf3e6;
   --surface-2: #e8dcc6;
-  --border: #d3c4a7;
-  --border-strong: #b8a685;
+  --border: #ded0b4;
+  --border-strong: #877553;
 
-  --text: #33291b;
-  --text-muted: #5c4c34;
-  --text-faint: #77664b;
+  --text: #2b2317;
+  --text-muted: #57492f;
+  --text-faint: #675840;
 
-  --accent: #7a4a19;
+  --accent: #a01346;
+  --accent-fill: #a01346;
   --accent-contrast: #fdf8ee;
-  --accent-soft: #e6d5b8;
+  --accent-soft: #eddac4;
+
+  /* Inherited amber reached only 4.37:1 on this theme's raised surface. */
+  --warn: #805300;
 
   --highlight-sentence: #f2dfae;
   --highlight-word: #dbab53;
-  --highlight-source: rgba(122, 74, 25, 0.2);
+  --highlight-source: rgba(160, 19, 70, 0.18);
 }
 
 * {
@@ -112,6 +155,11 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Outfit ships here in 400 and 700 only. Without this, any weight in between
+     is drawn by smearing the regular, which looks like a rendering fault and
+     is the sort of thing a type specimen exists to prevent. Refusing the
+     synthesis makes a stray 600 fall back to a real 400. */
+  font-synthesis-weight: none;
 }
 
 h1,
@@ -119,8 +167,10 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 620;
-  line-height: 1.25;
+  font-weight: 700;
+  line-height: 1.2;
+  /* Geometric caps look loose at heading sizes without a slight negative. */
+  letter-spacing: -0.018em;
 }
 
 button {
@@ -161,10 +211,10 @@ textarea {
   left: -9999px;
   z-index: 100;
   padding: 10px 16px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-contrast);
   border-radius: 0 0 var(--radius) 0;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .skip-link:focus {
@@ -187,25 +237,33 @@ textarea {
 /* Shared primitives                                                  */
 /* ---------------------------------------------------------------- */
 
+/* Pills: the signature of the light sheet, and the shape that reads as
+   "pressable" at any size. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 8px 16px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--text);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  /* A pill that breaks its own label mid-phrase stops reading as one control.
+     Let the toolbar wrap between buttons instead. */
+  white-space: nowrap;
   transition:
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
 }
 
 .btn:hover:not(:disabled) {
   background: var(--surface-2);
+  border-color: var(--text-faint);
 }
 
 .btn:disabled {
@@ -214,23 +272,25 @@ textarea {
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-contrast);
-  border-color: var(--accent);
+  border-color: var(--accent-fill);
 }
 
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: var(--accent);
+  filter: brightness(1.1);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 
+/* A circle, not a squashed pill, so an icon-only control reads as one target. */
 .btn-icon {
   padding: 8px;
   min-width: 38px;
 }
 
 .btn-sm {
-  padding: 4px 9px;
+  padding: 5px 12px;
   font-size: 13px;
 }
 
@@ -245,7 +305,7 @@ textarea {
   padding: 1px 7px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -278,7 +338,7 @@ textarea {
 .field-label {
   display: block;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-faint);

@@ -133,8 +133,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 Read parenthetical citations
                 <span className="hint">
                   {' '}
-                  — such as “(Smith, 2019)”. Keeping them preserves the author&apos;s sentence
-                  exactly.
+                  — such as “(Smith, 2019)”. Keeping them preserves the author’s sentence exactly.
                 </span>
               </span>
             </label>

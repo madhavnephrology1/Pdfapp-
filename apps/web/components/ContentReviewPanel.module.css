@@ -97,7 +97,7 @@
   background: var(--surface);
   border-color: var(--accent);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .list {
@@ -139,14 +139,14 @@
 }
 
 .regionType {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
   text-transform: capitalize;
 }
 
 .override {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rowActions {

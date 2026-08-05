@@ -338,6 +338,45 @@ them would change the sentence.
 
 ---
 
+## Visual design
+
+The interface follows two style sheets — **Daylight** (light) and **Nightfall**
+(dark) — that share one geometry and differ only in ground. Both are expressed
+entirely as custom properties in `apps/web/app/globals.css`; every component
+reads those tokens, so the system is changed in one place.
+
+|        | Daylight                              | Nightfall                                           |
+| ------ | ------------------------------------- | --------------------------------------------------- |
+| Ground | `#F4F3F1` off-white, `#FFFFFF` panels | `#000000` (OLED), elevation as white at 4 / 8 / 12% |
+| Text   | `#16181D` on slate neutrals           | 87% / 64% / 55% white                               |
+| Accent | rose `#C81454`                        | tint `#7FA3FF` for text, fill `#3465F0` for buttons |
+
+A third ground, **Sepia**, is kept because people read on it, and is tuned to
+the same structure.
+
+**Type.** [Outfit](https://github.com/Outfitio/Outfit-Fonts) for the interface
+and [Geist Mono](https://github.com/vercel/geist-font) for figures that line up
+in columns — both SIL Open Font Licence, both self-hosted in `app/fonts` with
+their licences, for the same reason the PDF.js assets are: opening a document
+should not tell a font CDN that you did.
+
+Three things about this are worth knowing before changing it:
+
+- **Outfit ships here in 400 and 700 only**, so `font-synthesis-weight: none` is
+  set on `body`. A stray `font-weight: 600` renders as a real 400 rather than as
+  a smeared fake bold. Use 400 or 700; there is nothing in between.
+- **The reading text is deliberately still a serif.** The style sheets specify
+  the geometric sans for _interface_; a document read end to end for
+  comprehension is not interface, and Outfit is not a text face.
+- **Two colours differ from the published sheets, for contrast.** The sheets'
+  rose `#E11D62` clears 4.5:1 on white but only 3.88:1 on the raised surface,
+  and white on the sheets' blue `#3B6FFF` reaches only 4.28:1. Both were
+  deepened until they pass. Every token meets WCAG 2.2 AA — 4.5:1 for text,
+  3:1 for control boundaries — against **every** ground it can land on, not just
+  the lightest, in all three themes.
+
+---
+
 ## Privacy behaviour
 
 - **Your PDF stays in your browser.** Rendering, extraction, layout analysis and

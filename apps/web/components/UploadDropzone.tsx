@@ -78,8 +78,8 @@ export function UploadDropzone() {
           if you choose one.
         </li>
         <li>
-          <strong>Nothing is summarised or reworded.</strong> The reader speaks the document&apos;s
-          own sentences. It will not paraphrase, correct grammar, or fill in text that is not there.
+          <strong>Nothing is summarised or reworded.</strong> The reader speaks the document’s own
+          sentences. It will not paraphrase, correct grammar, or fill in text that is not there.
         </li>
         <li>
           <strong>Every exclusion is visible and reversible.</strong> Content Review lists what was

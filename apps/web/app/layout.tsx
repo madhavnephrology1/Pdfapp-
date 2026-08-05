@@ -1,5 +1,38 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import './globals.css';
+
+/**
+ * The interface typeface: Outfit, a geometric sans (SIL Open Font License; the
+ * licence ships alongside the files in app/fonts).
+ *
+ * Self-hosted rather than fetched from a font CDN, for the same reason the
+ * PDF.js assets are: opening a document should not tell a third party that you
+ * did. Loading it through `next/font/local` also means the bundler fingerprints
+ * the files and applies the deployment's base path, which a hand-written
+ * `url()` in CSS would not.
+ *
+ * Only 400 and 700 exist here, so nothing in the interface may ask for a weight
+ * between them — see `font-synthesis-weight: none` in globals.css, which makes
+ * a mistaken 600 render as 400 rather than as a smeared fake bold.
+ */
+const outfit = localFont({
+  src: [
+    { path: './fonts/Outfit-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/Outfit-Bold.ttf', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-ui',
+  display: 'swap',
+  fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+});
+
+/** Geist Mono, for figures that line up in columns (SIL OFL). */
+const geistMono = localFont({
+  src: [{ path: './fonts/GeistMono-Regular.ttf', weight: '400', style: 'normal' }],
+  variable: '--font-mono',
+  display: 'swap',
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+});
 
 export const metadata: Metadata = {
   title: 'PDF Human Reader',
@@ -12,8 +45,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f6f4' },
-    { media: '(prefers-color-scheme: dark)', color: '#16171a' },
+    { media: '(prefers-color-scheme: light)', color: '#f4f3f1' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
 };
 
@@ -64,7 +97,12 @@ const THEME_BOOTSTRAP = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html
+      lang="en"
+      data-theme="light"
+      className={`${outfit.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {STATIC_CSP && <meta httpEquiv="Content-Security-Policy" content={STATIC_CSP} />}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />

@@ -26,8 +26,8 @@ export default function PrivacyPage() {
           extraction, layout analysis and classification all run locally.
         </li>
         <li>
-          The file itself is <strong>never uploaded</strong> to this app&apos;s server or anywhere
-          else, unless you explicitly turn on text recognition for scanned pages.
+          The file itself is <strong>never uploaded</strong> to this app’s server or anywhere else,
+          unless you explicitly turn on text recognition for scanned pages.
         </li>
         <li>
           The file is <strong>not stored</strong> between sessions unless you opt in. By default
@@ -40,13 +40,13 @@ export default function PrivacyPage() {
       <ul>
         <li>
           If a server speech provider is configured for this deployment, the app sends{' '}
-          <strong>the text of the passage currently being read</strong> to this app&apos;s own API,
-          which forwards it to that provider. Your file is not sent; only the words to be spoken.
+          <strong>the text of the passage currently being read</strong> to this app’s own API, which
+          forwards it to that provider. Your file is not sent; only the words to be spoken.
         </li>
         <li>
           If no server provider is configured, or you pick a browser voice, speech is produced by
-          your browser&apos;s own engine. Some operating systems use a cloud voice for this; that is
-          a decision made by your browser and operating system, not by this app.
+          your browser’s own engine. Some operating systems use a cloud voice for this; that is a
+          decision made by your browser and operating system, not by this app.
         </li>
         <li>
           The Settings panel names the exact provider this deployment is configured to use, before
@@ -84,22 +84,22 @@ export default function PrivacyPage() {
       <p>
         Your documents and their extracted text are <strong>not used to train any model</strong> by
         this application. If you configure a third-party speech or recognition provider, that
-        provider&apos;s own terms govern what it does with the text you send it — check them before
+        provider’s own terms govern what it does with the text you send it — check them before
         enabling one for sensitive documents.
       </p>
 
       <h2>Deleting your data</h2>
       <p>
         Settings → “Delete everything this app has stored” removes every reading position, setting
-        and locally-kept document from this browser, and clears the server&apos;s temporary audio
-        cache. Temporary server files are deleted as soon as a request finishes, and a sweeper
-        removes anything left behind.
+        and locally-kept document from this browser, and clears the server’s temporary audio cache.
+        Temporary server files are deleted as soon as a request finishes, and a sweeper removes
+        anything left behind.
       </p>
 
       <h2>What this app does not do</h2>
       <ul>
         <li>It does not summarise, paraphrase or reword your document.</li>
-        <li>It does not correct the author&apos;s grammar or complete unfinished sentences.</li>
+        <li>It does not correct the author’s grammar or complete unfinished sentences.</li>
         <li>It does not invent descriptions for images.</li>
         <li>It does not hide content it excluded — Content Review lists all of it.</li>
         <li>It does not present estimated word timing as if it were exact.</li>
