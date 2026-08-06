@@ -4,7 +4,7 @@ This document is deliberately blunt about what is implemented and tested versus
 what is scaffolded or absent. Nothing below is described as working unless it
 was built and exercised by a test.
 
-Test counts as of this revision: **349** unit and integration tests in the web
+Test counts as of this revision: **354** unit and integration tests in the web
 app, **108** in the API, and **31** end-to-end tests in Chromium.
 
 ---
@@ -140,12 +140,45 @@ There is no artificial page-count limit anywhere in the application logic.
 
 ### Column detection
 
-Handles single-column and the common two- and three-column layouts. Table
-interiors are excluded from the column vote, so a table cannot be mistaken for
-columns. Not handled: columns of unequal width that overlap vertically, text
+Handles single-column and the common two- and three-column layouts, **including
+columns that very nearly touch**. Two independent signals are used, in order:
+
+1. **The gutter.** Item coverage is projected across the page and an empty strip
+   is looked for. This is the right test whenever there is a gutter to find.
+2. **The line starts**, used only when the first finds nothing. In a real NEJM
+   paper the gutter measures **2 points** at the density threshold — the columns
+   almost meet — so no strip exists and thirteen two-column pages were read as
+   one, interleaving the columns line by line into nonsense: "antineu- Me thods
+   trophil cytoplasmic autoantibody–associated vas- Trial Design and Oversight
+   culitis". The line starts are unambiguous even when the gutter is not: half
+   the items begin at x=62 and half at x=269, and nothing begins between.
+
+Line starts are a strict **fallback**, never an additional source. A first
+attempt that let both propose boundaries turned two-column fixtures into
+three-column ones, so a page that already splits on its gutter is now left
+exactly as it was. Candidates from either signal face the identical checks —
+side shares, crossing rows, band width — so this widens what can be proposed and
+never what is accepted.
+
+Table interiors are excluded from the column vote, so a table cannot be mistaken
+for columns. Not handled: columns of unequal width that overlap vertically, text
 flowing around a floated figure, and magazine-style layouts with more than three
 columns. When detection is not confident the page is flagged as uncertain rather
 than presented as certain.
+
+### Letter-spaced text is read letter by letter
+
+Some publishers set running heads with wide letter spacing, and PDF.js reports
+the result with the spaces in it: the item's own string is literally
+`"n e w e ng l a n d j o u r na l"`. Speech then reads it out letter by letter.
+
+This is **not** repaired, deliberately. Removing spaces the extractor inserted
+would mean deciding that "a b c" is really "abc", and that decision is wrong for
+list markers, initials, and mathematics. Silently joining them would rewrite the
+document, which is the one thing this reader must not do. The affected text is
+almost always a running head, which is detected as repeated furniture and
+skipped, so in practice it is rarely spoken — on the NEJM paper it survives once
+in roughly 47,000 characters.
 
 ### Front matter
 

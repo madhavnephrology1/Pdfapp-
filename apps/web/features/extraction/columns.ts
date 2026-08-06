@@ -21,6 +21,29 @@ const MAX_CROSSING_ROW_SHARE = 0.2;
 const MIN_TWO_SIDED_ROWS = 3;
 /** A column band narrower than this share of the content width is implausible. */
 const MIN_BAND_WIDTH_SHARE = 0.2;
+
+/**
+ * Finding columns that very nearly touch.
+ *
+ * Projecting item coverage and looking for an empty strip is the right test for
+ * a page with a comfortable gutter, and it fails completely on a tight one. In a
+ * real NEJM paper the gutter is **2 points** at the density threshold — the
+ * columns almost meet — so no strip is ever found and thirteen two-column pages
+ * were read as one, interleaving the two columns line by line into nonsense.
+ *
+ * Where the gutter is invisible, the LINE STARTS are not: 50 items begin at
+ * x=62 and 50 more at x=269, and nothing begins in between. That bimodal
+ * distribution is the column structure, seen from the other side.
+ *
+ * Candidates found this way are validated by exactly the same rules as any
+ * other — side shares, crossing rows, band width — so this widens what can be
+ * proposed, never what is accepted.
+ */
+const EDGE_CLUSTER_TOLERANCE = 6;
+/** A second cluster must be at least this far right to be another column. */
+const MIN_EDGE_OFFSET_SHARE = 0.25;
+/** The boundary sits just left of the cluster, so its own items fall right. */
+const EDGE_BOUNDARY_INSET = 2;
 /**
  * Share of narrow items that may still fall inside a gutter for it to count.
  *
@@ -127,6 +150,48 @@ function contentExtent(items: RawTextItem[]): Interval | null {
  * This is deterministic layout analysis. No model, no heuristic guessing at
  * content meaning.
  */
+interface Candidate {
+  widthPoints: number;
+  centre: number;
+  source: 'gutter' | 'line-starts';
+}
+
+/**
+ * Proposes column boundaries from where lines begin.
+ *
+ * Left edges are clustered; a cluster far enough to the right of the content's
+ * start, holding a real share of the items, is where another column starts. The
+ * boundary is placed just left of it so that cluster's own items fall on the
+ * right side of the split.
+ */
+function lineStartCandidates(
+  narrow: RawTextItem[],
+  extent: Interval,
+  contentWidth: number,
+): Candidate[] {
+  if (narrow.length === 0) return [];
+  const clusters: { at: number; count: number }[] = [];
+  for (const edge of narrow.map((item) => item.x).sort((a, b) => a - b)) {
+    const last = clusters[clusters.length - 1];
+    if (last && edge - last.at <= EDGE_CLUSTER_TOLERANCE) {
+      last.count += 1;
+      last.at = (last.at * (last.count - 1) + edge) / last.count;
+    } else {
+      clusters.push({ at: edge, count: 1 });
+    }
+  }
+
+  return clusters
+    .filter((cluster) => cluster.at > extent.start + contentWidth * MIN_EDGE_OFFSET_SHARE)
+    .filter((cluster) => cluster.count >= narrow.length * MIN_SIDE_SHARE)
+    .map((cluster) => ({
+      widthPoints: 0,
+      centre: cluster.at - EDGE_BOUNDARY_INSET,
+      source: 'line-starts' as const,
+    }))
+    .sort((a, b) => a.centre - b.centre);
+}
+
 export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDetection {
   const textItems = items.filter((item) => item.text.trim() !== '');
   const extent = contentExtent(textItems);
@@ -182,19 +247,20 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
   // A trailing run touches the right edge, so it is margin, not a gutter.
 
   const evidence: string[] = [];
-  const candidates = gutters
+  const gutterCandidates: Candidate[] = gutters
     .filter((run) => run.start > 0)
     .map((run) => ({
       widthPoints: (run.end - run.start) * BIN_SIZE,
       centre: extent.start + ((run.start + run.end) / 2) * BIN_SIZE,
+      source: 'gutter' as const,
     }))
     .filter((g) => g.widthPoints >= Math.max(MIN_GUTTER_POINTS, pageWidth * 0.02))
     .sort((a, b) => b.widthPoints - a.widthPoints);
 
   const accepted: number[] = [];
 
-  for (const candidate of candidates) {
-    if (accepted.length + 1 >= MAX_COLUMNS) break;
+  const consider = (candidate: Candidate): void => {
+    if (accepted.length + 1 >= MAX_COLUMNS) return;
     const left = narrow.filter((item) => item.x + item.width / 2 < candidate.centre).length;
     const right = narrow.length - left;
     const share = Math.min(left, right) / narrow.length;
@@ -202,7 +268,7 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
       evidence.push(
         `rejected gutter at x=${candidate.centre.toFixed(0)}: sides hold only ${left}/${right} items`,
       );
-      continue;
+      return;
     }
 
     // Vertical continuity. A genuine gutter is empty for nearly the full height
@@ -224,13 +290,13 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
       evidence.push(
         `rejected gutter at x=${candidate.centre.toFixed(0)}: text crosses it on ${crossing} of ${rows.length} rows, so it is not a continuous column gutter`,
       );
-      continue;
+      return;
     }
     if (twoSided < MIN_TWO_SIDED_ROWS) {
       evidence.push(
         `rejected gutter at x=${candidate.centre.toFixed(0)}: only ${twoSided} rows have text on both sides`,
       );
-      continue;
+      return;
     }
 
     const bandWidth = Math.min(candidate.centre - extent.start, extent.end - candidate.centre);
@@ -238,13 +304,24 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
       evidence.push(
         `rejected gutter at x=${candidate.centre.toFixed(0)}: it would create a ${bandWidth.toFixed(0)}pt column, too narrow to be a text column`,
       );
-      continue;
+      return;
     }
 
     accepted.push(candidate.centre);
     evidence.push(
-      `gutter at x=${candidate.centre.toFixed(0)} is ${candidate.widthPoints.toFixed(0)}pt wide, splits ${left}/${right} items, and is crossed on only ${crossing} of ${rows.length} rows`,
+      candidate.source === 'gutter'
+        ? `gutter at x=${candidate.centre.toFixed(0)} is ${candidate.widthPoints.toFixed(0)}pt wide, splits ${left}/${right} items, and is crossed on only ${crossing} of ${rows.length} rows`
+        : `column boundary at x=${candidate.centre.toFixed(0)} found from line starts (the gutter itself is too narrow to see), splits ${left}/${right} items, and is crossed on only ${crossing} of ${rows.length} rows`,
     );
+  };
+
+  for (const candidate of gutterCandidates) consider(candidate);
+
+  // Line starts are a FALLBACK, not an extra source. A page that already splits
+  // on its gutter is left exactly as it was — proposing more boundaries there
+  // turned two-column fixtures into three-column ones.
+  if (accepted.length === 0) {
+    for (const candidate of lineStartCandidates(narrow, extent, contentWidth)) consider(candidate);
   }
 
   if (accepted.length === 0) {
