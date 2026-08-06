@@ -230,6 +230,31 @@ almost always a running head, which is detected as repeated furniture and
 skipped, so in practice it is rarely spoken — on the NEJM paper it survives once
 in roughly 47,000 characters.
 
+### Sentence ends around initials
+
+Author lists write initials run together — "H.J.L. Heerspink", "D.C. Wheeler".
+The rule that recognises an initial looked for a space before the letter, so on
+a cluster it matched the FIRST period and not the last, and **the sentence ended
+on the author's initials while the next one began on their surname**. On the
+NEJM trial paper, 12 sentences ended that way, one of them consisting of nothing
+but "H.J.L.". Both counts are now zero, and the document's sentence count fell
+by exactly 12 — so every break removed was one of these, and no real sentence
+end was lost.
+
+A related case is **not** fixed: a sentence genuinely ending in a single capital
+letter, as in "Patients received vitamin D. The dose was fixed." That single
+letter is read as an initial, so the two sentences are joined. Telling them
+apart needs to know whether the word after the period is a surname, and both
+readings are capitalised. This predates the cluster rule and is unaffected by
+it — the cluster rule requires two or more letter-period pairs precisely so it
+does not widen the case. It is recorded here with a test that asserts the
+current behaviour, so a future change to the single-letter rule starts from a
+measured position.
+
+Nothing is lost to either case. The segmenter only ever splits, never edits, so
+every word is still read exactly as written; what a wrong boundary costs is the
+pause, and the highlight moving at the wrong moment.
+
 ### Front matter
 
 Detected from roman-numeral pagination and conventional headings, and annotated

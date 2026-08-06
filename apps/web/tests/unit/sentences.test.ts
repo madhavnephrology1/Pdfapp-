@@ -35,6 +35,39 @@ describe('segmentSentences', () => {
     ]);
   });
 
+  /**
+   * Author lists write initials run together, and the single-initial rule above
+   * only recognises a space before the letter — so it matched the FIRST period
+   * of "H.J.L." and not the last. The sentence ended on the author's initials
+   * and the next one began on their surname, which is what a listener heard.
+   */
+  it('does not split inside initials written without spaces', () => {
+    expect(texts('H.J.L. Heerspink and D.C. Wheeler reported the outcome.')).toEqual([
+      'H.J.L. Heerspink and D.C. Wheeler reported the outcome.',
+    ]);
+  });
+
+  /**
+   * A KNOWN LIMITATION, recorded rather than fixed.
+   *
+   * A single capital letter before a period is read as an initial, so a
+   * sentence genuinely ending in one — "vitamin D." — is joined to the sentence
+   * after it. Telling the two apart needs to know whether the following word is
+   * a surname, which nothing here can do; both are capitalised.
+   *
+   * This predates the initials-cluster rule above and is unchanged by it: the
+   * cluster rule requires TWO or more letter-period pairs precisely so that it
+   * does not widen this case. The assertion is here so that if the single-letter
+   * rule is ever revisited, this is a measured starting point rather than a
+   * surprise. Nothing is lost either way — the segmenter only ever splits, so
+   * the words are read correctly; only the pause between them is missing.
+   */
+  it('joins a sentence ending in a single capital letter (known limitation)', () => {
+    expect(texts('Patients received vitamin D. The dose was fixed.')).toEqual([
+      'Patients received vitamin D. The dose was fixed.',
+    ]);
+  });
+
   it('does not split on et al.', () => {
     expect(texts('Described by Cho et al. in a later cohort.')).toEqual([
       'Described by Cho et al. in a later cohort.',

@@ -105,6 +105,14 @@ export function segmentSentences(text: string): SentenceSpan[] {
       if (ABBREVIATIONS.has(word) || ABBREVIATIONS.has(word.replace(/\.$/, ''))) continue;
       // A single capital letter before the period is an initial ("J. Smith").
       if (/^[a-z]$/i.test(text[i - 1] ?? '') && /[\s(]/.test(text[i - 2] ?? ' ')) continue;
+      // Initials run together, as author lists write them: "H.J.L. Heerspink",
+      // "D.C. Wheeler". The rule above only sees a space before the letter, so
+      // it matched the FIRST period of such a cluster and not the last — which
+      // ended the sentence on the author's own initials and started the next
+      // one on their surname. Two or more letter-period pairs are required:
+      // one on its own is "vitamin D." and is left to the rule above, so this
+      // changes nothing about where a real sentence ends.
+      if (/^(?:[a-z]\.){2,5}$/.test(previousWord(text, i + 1))) continue;
       // Decimal or numbered-list separator followed by a digit.
       if (/\d/.test(text[i - 1] ?? '') && /^\d/.test(nextChar ?? '')) continue;
     }
