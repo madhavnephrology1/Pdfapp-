@@ -89,6 +89,25 @@ describe('columns that nearly touch', () => {
     expect(detectColumns(items, 567).columns).toHaveLength(1);
   });
 
+  /**
+   * A table's widest cell boundary leaves a narrow band beside a wide one, and
+   * splitting there cuts every row of the table in half.
+   *
+   * This asserts the intended behaviour; it does not on its own prove the
+   * balance rule, because a table this regular is already recognised as tabular
+   * and excluded before the rule is reached. The rule was measured on a real
+   * page whose table is not regular enough to be caught that way — see the
+   * note on MIN_EDGE_BALANCE.
+   */
+  it('does not split a table at one of its cell edges', () => {
+    const items: RawTextItem[] = [];
+    for (let row = 0; row < 20; row += 1) {
+      const y = 700 - row * 11;
+      for (const x of [40, 240, 430]) items.push(item(`cell text ${row}`, x, 120, y, 9));
+    }
+    expect(detectColumns(items, 567).columns).toHaveLength(1);
+  });
+
   it('leaves a page with too few items alone', () => {
     const items = [item('a short line', 62, 100, 700), item('another', 269, 60, 700)];
     expect(detectColumns(items, 567).columns).toHaveLength(1);

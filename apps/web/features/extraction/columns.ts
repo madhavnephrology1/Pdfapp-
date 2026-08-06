@@ -45,6 +45,40 @@ const MIN_EDGE_OFFSET_SHARE = 0.25;
 /** The boundary sits just left of the cluster, so its own items fall right. */
 const EDGE_BOUNDARY_INSET = 2;
 /**
+ * How big a line-start cluster must be, RELATIVE TO THE BIGGEST ONE.
+ *
+ * This was a share of every narrow item on the page, and that denominator is
+ * wrong for a page that carries a table as well as its columns: the table's
+ * cells start all across the width, inflate the count, and drown the real
+ * column. Measured on a review article whose page 2 has both — the second
+ * column's line starts numbered 38 against a threshold of 46, so the page was
+ * read as one column and its two columns were spoken interleaved, a line of
+ * one then a line of the other.
+ *
+ * Comparing against the largest cluster asks the question that actually
+ * matters: does this edge begin nearly as many lines as the main column does?
+ * On that page it is 38 against 57, and on a two-column page whose columns
+ * nearly touch it is 20 against 20. A stray alignment inside one column does
+ * not come close.
+ */
+const MIN_EDGE_CLUSTER_SHARE = 0.35;
+/** Below this a cluster is too small to be a column however the page is built. */
+const MIN_EDGE_CLUSTER_ITEMS = 6;
+/**
+ * How equal the two sides of a line-start boundary must be.
+ *
+ * Text columns on a page are near enough the same width — that is what makes
+ * them columns rather than a column and a margin note. A table's cell
+ * boundaries are not: on the page that prompted this, the widest table column
+ * left a 389pt band beside a 131pt one, and splitting there would have cut
+ * every row of the table in half.
+ *
+ * This applies to line-start candidates only. A boundary found from a real
+ * gutter has already proved itself by being empty down the page, and some
+ * documents genuinely do set a narrow sidebar against a wide column.
+ */
+const MIN_EDGE_BALANCE = 0.5;
+/**
  * Share of narrow items that may still fall inside a gutter for it to count.
  *
  * Requiring a gutter to be COMPLETELY empty fails on real documents: one
@@ -181,9 +215,12 @@ function lineStartCandidates(
     }
   }
 
+  const largest = clusters.reduce((most, cluster) => Math.max(most, cluster.count), 0);
+
   return clusters
     .filter((cluster) => cluster.at > extent.start + contentWidth * MIN_EDGE_OFFSET_SHARE)
-    .filter((cluster) => cluster.count >= narrow.length * MIN_SIDE_SHARE)
+    .filter((cluster) => cluster.count >= MIN_EDGE_CLUSTER_ITEMS)
+    .filter((cluster) => cluster.count >= largest * MIN_EDGE_CLUSTER_SHARE)
     .map((cluster) => ({
       widthPoints: 0,
       centre: cluster.at - EDGE_BOUNDARY_INSET,
@@ -300,6 +337,13 @@ export function detectColumns(items: RawTextItem[], pageWidth: number): ColumnDe
     }
 
     const bandWidth = Math.min(candidate.centre - extent.start, extent.end - candidate.centre);
+    const widestBand = Math.max(candidate.centre - extent.start, extent.end - candidate.centre);
+    if (candidate.source === 'line-starts' && bandWidth < widestBand * MIN_EDGE_BALANCE) {
+      evidence.push(
+        `rejected boundary at x=${candidate.centre.toFixed(0)} from line starts: it would leave a ${bandWidth.toFixed(0)}pt band beside a ${widestBand.toFixed(0)}pt one, which is a table's cell edge rather than a column`,
+      );
+      return;
+    }
     if (bandWidth < contentWidth * MIN_BAND_WIDTH_SHARE) {
       evidence.push(
         `rejected gutter at x=${candidate.centre.toFixed(0)}: it would create a ${bandWidth.toFixed(0)}pt column, too narrow to be a text column`,

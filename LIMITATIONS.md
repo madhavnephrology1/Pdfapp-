@@ -216,6 +216,43 @@ flowing around a floated figure, and magazine-style layouts with more than three
 columns. When detection is not confident the page is flagged as uncertain rather
 than presented as certain.
 
+### Columns on a page that also carries a table
+
+A column's line starts were measured as a share of every narrow item on the
+page. On a page carrying a wide table as well as its two prose columns, the
+table's cells begin at their own left edges all across the width, inflate that
+total, and push the real second column below the bar. Measured on a review
+article: page 2's second column had 38 line starts against a threshold of 46,
+so the page was read as one column and the two columns were spoken a line of
+one then a line of the other — *"TLS was 16 per 100,000 in 2010. RISK
+STRATIFICATION"*. A column is now measured against the largest cluster on the
+page instead, which asks whether this edge begins nearly as many lines as the
+main column does.
+
+A boundary found from line starts must also leave two bands of comparable
+width. Without that, the same page's Table 4 split at its widest cell edge —
+a 131pt band beside a 389pt one — which would have cut every row in half.
+
+Measured over the whole article: interleaved passages fell from 13 to 5, and
+the 5 that remain are all Table 4's own rows, which is the next problem, not
+this one.
+
+**This is verified against the real document, not by a unit test.** Synthetic
+fixtures do not reproduce it: a table regular enough to write by hand is
+recognised as tabular and excluded before the rule is reached, so the test
+passes with or without the fix. The tests in `tight-columns.test.ts` assert the
+intended behaviour and guard the shape of it; the evidence for the fix itself
+is the measurement above.
+
+### A table read as prose when it is not detected as one
+
+Tables are skipped by default, so a table that is not *detected* as a table is
+read as though it were prose — and a wide one reads as its rows run together:
+*"Early-stage lymphoblastic LDH $2 x ULN with one of the NHLs not deemed
+intermedi- lymphoma following malignancies:"*. Five such passages remain in the
+review article measured above, all from one three-column table whose rows are
+too irregular for the current detector. **Not fixed.**
+
 ### Letter-spaced text is read letter by letter
 
 Some publishers set running heads with wide letter spacing, and PDF.js reports
