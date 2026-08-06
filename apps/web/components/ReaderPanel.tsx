@@ -2,11 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { OCRPageRecord, SentenceRecord } from '@pdfreader/shared-types';
-import type { FigureRect } from '@/features/extraction/figures';
 import { splitWords } from '@/features/extraction/sentences';
 import { remainingLowConfidenceIndexes } from '@/features/ocr/items';
 import { isEstimatedTiming, timingSourceLabel } from '@/features/playback/timing';
 import { formatDiagnostics } from '@/features/reader/diagnostics';
+import { markerLabel } from '@/features/reader/markers';
 import { buildReaderParagraphs, type ReaderParagraph } from '@/features/reader/queue';
 import { useReducedMotion } from '@/hooks/use-theme';
 import { useDocumentStore } from '@/stores/document-store';
@@ -73,8 +73,6 @@ export function ReaderPanel() {
   const rawItems = useDocumentStore((state) => state.rawItems);
   const pages = useDocumentStore((state) => state.pages);
   const progress = useDocumentStore((state) => state.progress);
-  const figures = useDocumentStore((state) => state.figures);
-  const drawings = useDocumentStore((state) => state.drawings);
   const activeSentenceId = usePlaybackStore((state) => state.activeSentenceId);
   const activeWordIndex = usePlaybackStore((state) => state.activeWordIndex);
   const wordTimingSource = usePlaybackStore((state) => state.wordTimingSource);
@@ -115,114 +113,9 @@ export function ReaderPanel() {
     [ocrPages],
   );
 
-  /**
-   * Which figures belong before which paragraph.
-   *
-   * A figure has a position on the page but no place in the reading order, so
-   * it is attached to the first paragraph whose region starts below it on the
-   * same page — where a reader's eye would meet it. A figure below all of a
-   * page's text attaches to nothing here and is reported at the end of that
-   * page's last paragraph instead, so it is never silently dropped.
-   */
-  /**
-   * Drawn areas whose text sits in short runs rather than running prose.
-   *
-   * A chart or table drawn as lines paints no image, so the figure marker never
-   * appears for it — but its labels are in the text layer and are read in page
-   * order, which for a branching diagram or a grid of cells is not the order it
-   * is meant to be read in. That produces plausible prose that is not what the
-   * page says, and unlike a missing figure a listener cannot hear that it is
-   * wrong. On the trial paper measured here, five such pages carry no image at
-   * all, so nothing else in this application finds them.
-   *
-   * Being inside a drawn box is not enough on its own: what is looked for is
-   * that the text inside is mostly SHORT RUNS — labels and cells, not
-   * sentences. The threshold is measured, not guessed. Across five real papers
-   * the areas that are charts, tables and figure panels run 80–99% short runs,
-   * and the areas that are title blocks and boxed prose run 39–60%. A count of
-   * separately drawn parts was tried first and discarded: it does not separate
-   * them, since a whole chart is often one merged path.
-   *
-   * It is not a clean cut, and the marker's wording is held to what the measure
-   * actually supports. A boxed "Key Points" summary scores as high as a flow
-   * chart does, because the text layer splits its justified lines into one item
-   * per word; nothing measured here separates the two. So the marker says a
-   * drawn area is there and that its contents are read in page order — true of
-   * the chart, the table and the summary box alike — rather than asserting a
-   * diagram that may not be one.
-   */
-  const diagrams = useMemo(() => {
-    if (drawings.length === 0 || rawItems.length === 0) return [] as FigureRect[];
-    return drawings.filter((area) => {
-      // An area that is already covered by a figure marker is not marked twice.
-      // Three of the pages measured carry a picture AND the paths that draw its
-      // axes and panel frames, and two markers for one picture is noise that
-      // buries the pages where the drawing is all there is.
-      const covered = figures.some(
-        (figure) =>
-          figure.pageNumber === area.pageNumber &&
-          figure.x < area.x + area.width &&
-          figure.x + figure.width > area.x &&
-          figure.y < area.y + area.height &&
-          figure.y + figure.height > area.y,
-      );
-      if (covered) return false;
-
-      const inside = rawItems.filter(
-        (item) =>
-          item.pageNumber === area.pageNumber &&
-          item.x + item.width > area.x &&
-          item.x < area.x + area.width &&
-          item.y + item.height > area.y &&
-          item.y < area.y + area.height,
-      );
-      if (inside.length < 3) return false;
-      const fragments = inside.filter(
-        (item) => item.text.trim().split(/\s+/).filter(Boolean).length <= 3,
-      ).length;
-      return fragments / inside.length >= 0.7;
-    });
-  }, [drawings, figures, rawItems]);
-
-  const figuresBefore = useMemo(() => {
-    const byParagraph = new Map<string, FigureRect[]>();
-    if (figures.length === 0) return byParagraph;
-
-    const topOf = (regionId: string): number | null => {
-      const region = regions.find((candidate) => candidate.id === regionId);
-      const box = region?.boundingBoxes?.[0];
-      return box ? box.y + box.height : null;
-    };
-
-    for (const figure of figures) {
-      const onPage = paragraphs.filter((p) => p.pageNumber === figure.pageNumber);
-      if (onPage.length === 0) continue;
-      const figureTop = figure.y + figure.height;
-      const host =
-        onPage.find((p) => {
-          const top = topOf(p.regionId);
-          return top !== null && top < figureTop;
-        }) ?? onPage[onPage.length - 1];
-      const existing = byParagraph.get(host.paragraphId);
-      if (existing) existing.push(figure);
-      else byParagraph.set(host.paragraphId, [figure]);
-    }
-    return byParagraph;
-  }, [figures, paragraphs, regions]);
-
-  const diagramsBefore = useMemo(() => {
-    const byParagraph = new Map<string, FigureRect[]>();
-    if (diagrams.length === 0) return byParagraph;
-    for (const area of diagrams) {
-      const onPage = paragraphs.filter((p) => p.pageNumber === area.pageNumber);
-      if (onPage.length === 0) continue;
-      const host = onPage[0];
-      const existing = byParagraph.get(host.paragraphId);
-      if (existing) existing.push(area);
-      else byParagraph.set(host.paragraphId, [area]);
-    }
-    return byParagraph;
-  }, [diagrams, paragraphs]);
+  // Which markers belong before which paragraph. Placed in the store, so the
+  // panel and the audio cannot disagree about where a picture sits.
+  const markers = useDocumentStore((state) => state.markers);
 
   if (paragraphs.length === 0) {
     // "Nothing to read" is a CONCLUSION, and it must not be stated before the
@@ -339,25 +232,25 @@ export function ReaderPanel() {
         >
           {paragraphs.map((paragraph) => (
             <Fragment key={paragraph.paragraphId}>
-              {(diagramsBefore.get(paragraph.paragraphId) ?? []).map((area, index) => (
+              {(markers.get(paragraph.paragraphId) ?? []).map((marker) => (
                 <p
-                  key={`dia-${area.pageNumber}-${index}`}
+                  key={marker.id}
+                  id={marker.id}
                   className={styles.figureMarker}
-                  aria-label={`A drawn area — a chart, a table or a box — appears on page ${area.pageNumber}. The text inside it is read in page order, which may not be the order it is meant to be read in.`}
+                  ref={
+                    activeSentenceId === marker.id
+                      ? (activeRef as React.RefObject<HTMLParagraphElement | null>)
+                      : undefined
+                  }
+                  data-active={activeSentenceId === marker.id ? 'true' : undefined}
                 >
-                  Drawn area on page {area.pageNumber} — a chart, table or box; the text inside is
-                  read in page order, which may not be the order it is meant to be read in
-                </p>
-              ))}
-              {(figuresBefore.get(paragraph.paragraphId) ?? []).map((figure, index) => (
-                <p
-                  key={`fig-${figure.pageNumber}-${index}`}
-                  className={styles.figureMarker}
-                  // Not spoken. Announcing it in the audio would mean adding
-                  // words the document does not contain.
-                  aria-label={`A figure appears here on page ${figure.pageNumber}. It is not described.`}
-                >
-                  Figure on page {figure.pageNumber} — not described
+                  {markerLabel(marker)}
+                  {settings.announcements.speakFigureMarkers ? (
+                    // Said out loud as well as shown, and these are the only
+                    // words in the audio the document does not contain. Saying
+                    // so on screen is how a reader can tell which is which.
+                    <span className={styles.markerSpoken}> · spoken, added by this app</span>
+                  ) : null}
                 </p>
               ))}
               <Paragraph

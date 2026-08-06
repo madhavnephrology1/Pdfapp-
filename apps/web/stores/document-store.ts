@@ -18,6 +18,7 @@ import { ocrPageToExtractionInput, summarizeOcrPage } from '@/features/ocr/items
 import { mergeRecognizedPage, type DocumentSlice } from '@/features/ocr/merge';
 import { renderPageForOcr } from '@/features/ocr/render';
 import { buildReadingQueue, type ReadingQueue } from '@/features/reader/queue';
+import { placeMarkers, selectDrawnAreas, type PageMarker } from '@/features/reader/markers';
 import { DEFAULT_SETTINGS, mergeSettings } from '@/features/settings/defaults';
 import { documentIdFor, fingerprintFile } from '@/lib/fingerprint';
 import { OCRClientError, recognizePage as postPageForRecognition } from '@/lib/ocr-client';
@@ -57,6 +58,13 @@ interface DocumentState {
   figures: FigureRect[];
   /** Areas covered by vector drawing. */
   drawings: FigureRect[];
+  /**
+   * Figure and drawn-area markers, keyed by the paragraph they precede.
+   *
+   * Placed once, here, so the panel and the audio cannot disagree about which
+   * paragraph a picture sits before.
+   */
+  markers: Map<string, PageMarker[]>;
   outline: OutlineNode[];
   duplicatesRemoved: number;
 
@@ -205,6 +213,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   rawItems: [],
   figures: [],
   drawings: [],
+  markers: new Map(),
   outline: [],
   duplicatesRemoved: 0,
   totalPages: 0,
@@ -267,6 +276,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       rawItems: [],
       figures: [],
       drawings: [],
+      markers: new Map(),
       outline: [],
       totalPages: 0,
       pagesAnalyzed: 0,
@@ -327,6 +337,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           // Recognised pages survive a later analysis pass: they were not
           // produced by the pipeline and must not be thrown away by it.
           const composed = composeDocument(base, state.ocrPages, state.documentId);
+          const markers = placeMarkers(
+            message.figures,
+            selectDrawnAreas(message.drawings, message.figures, message.rawItems),
+            composed.paragraphs,
+            composed.regions,
+          );
           set({
             status: 'ready',
             baseDocument: base,
@@ -334,8 +350,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
             rawItems: message.rawItems,
             figures: message.figures,
             drawings: message.drawings,
+            markers,
             duplicatesRemoved: message.duplicatesRemoved,
-            queue: buildReadingQueue(composed.regions, composed.sentences, state.settings),
+            queue: buildReadingQueue(composed.regions, composed.sentences, state.settings, markers),
             totalPages: message.pagesTotal || state.totalPages,
             pagesAnalyzed: message.pagesAnalyzed,
             ...(message.type === 'done'
@@ -430,6 +447,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       rawItems: [],
       figures: [],
       drawings: [],
+      markers: new Map(),
       outline: [],
       duplicatesRemoved: 0,
       totalPages: 0,
@@ -449,8 +467,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   setSettings(update) {
     const settings = { ...get().settings, ...update };
-    const { regions, sentences, fingerprint } = get();
-    set({ settings, queue: buildReadingQueue(regions, sentences, settings) });
+    const { regions, sentences, fingerprint, markers } = get();
+    set({ settings, queue: buildReadingQueue(regions, sentences, settings, markers) });
     if (fingerprint) {
       void saveSettings(fingerprint, settings).catch((error: StorageFullError) => {
         set({
@@ -624,12 +642,21 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   applyOcrPages(ocrPages) {
-    const { baseDocument, documentId, settings } = get();
+    const { baseDocument, documentId, settings, figures, drawings, rawItems } = get();
     const composed = composeDocument(baseDocument, ocrPages, documentId);
+    // Recognised pages change which paragraphs exist, so the markers are placed
+    // again against the recomposed document rather than kept from before.
+    const markers = placeMarkers(
+      figures,
+      selectDrawnAreas(drawings, figures, rawItems),
+      composed.paragraphs,
+      composed.regions,
+    );
     set({
       ocrPages,
       ...composed,
-      queue: buildReadingQueue(composed.regions, composed.sentences, settings),
+      markers,
+      queue: buildReadingQueue(composed.regions, composed.sentences, settings, markers),
     });
   },
 }));

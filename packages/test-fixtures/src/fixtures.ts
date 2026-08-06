@@ -413,6 +413,61 @@ export function frontMatterPdf(): Uint8Array {
 }
 
 /** Every fixture, addressable by name for scripts and tests. */
+/* ------------------------------------------------------------------ */
+/* A page whose flow chart is drawn as lines rather than painted       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A body paragraph and, below it, a chart drawn as a filled rectangle with
+ * short labels scattered inside it.
+ *
+ * This is the case the drawn-area marker exists for: the chart paints no image,
+ * so nothing reports it, and its labels ARE in the text layer, so they are read
+ * in page order as though they were prose. The rectangle is well inside the
+ * page margins and covers a fraction of the sheet, so it is not mistaken for a
+ * background wash or a full-width band.
+ */
+export const FLOW_CHART_LABELS = [
+  'Tumor Cell Lysis',
+  'Potassium',
+  'release',
+  'Uric acid',
+  'formation',
+  'Acute kidney injury',
+];
+
+export function flowChartPdf(): Uint8Array {
+  const runs = [
+    {
+      x: 72,
+      y: 700,
+      text: 'The metabolic consequences of rapid tumour cell turnover are summarised below.',
+      size: 11,
+    },
+    {
+      x: 72,
+      y: 682,
+      text: 'Each arm of the sequence has been reported independently in case series.',
+      size: 11,
+    },
+    ...FLOW_CHART_LABELS.map((text, index) => ({
+      x: 170 + (index % 3) * 90,
+      y: 520 - Math.floor(index / 3) * 90,
+      text,
+      size: 9,
+    })),
+  ];
+
+  return buildPdf([
+    {
+      runs,
+      // 300x250 at (150, 300): inside the margins, 15% of the page, so it
+      // passes the width and area caps that exclude page furniture.
+      rects: [{ x: 150, y: 300, width: 300, height: 250, gray: 0.95 }],
+    },
+  ]);
+}
+
 export const FIXTURES = {
   'single-page': singlePagePdf,
   'fifty-page': () => fiftyPagePdf(50),
@@ -423,6 +478,7 @@ export const FIXTURES = {
   'mixed-scanned': mixedScannedPdf,
   'front-matter': frontMatterPdf,
   'realistic-paper': realisticPaperPdf,
+  'flow-chart': flowChartPdf,
 } as const;
 
 export type FixtureName = keyof typeof FIXTURES;

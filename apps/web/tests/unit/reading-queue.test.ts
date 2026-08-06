@@ -237,4 +237,90 @@ describe('buildReadingQueue', () => {
     buildReadingQueue(regions, sentences, settings());
     expect(JSON.stringify(sentences)).toBe(before);
   });
+
+  /**
+   * The figure and drawn-area announcements are the ONLY words this application
+   * puts into the audio that the document does not contain, so what guards them
+   * is here: they are switchable, they are marked, they claim nothing about
+   * what a picture shows, and they never reach a page that is not being read.
+   */
+  describe('marker announcements', () => {
+    const marker = { kind: 'figure', pageNumber: 1, id: 'marker-figure-1-0' } as const;
+    const markers = new Map([['body:para0', [marker]]]);
+
+    it('speaks a marker before the paragraph it was placed on', () => {
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      expect(queue.entries.map((e) => e.sentence.id)).toEqual(['marker-figure-1-0', 's-body']);
+      expect(queue.entries[0].speechText).toContain('page 1');
+    });
+
+    it('says nothing when the switch is off', () => {
+      const queue = buildReadingQueue(
+        regions,
+        sentences,
+        settings({ announcements: { speakFigureMarkers: false } }),
+        markers,
+      );
+      expect(queue.entries.map((e) => e.sentence.id)).toEqual(['s-body']);
+    });
+
+    it('marks the entry as the application speaking, not the document', () => {
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      expect(queue.entries[0].announcement).toEqual(marker);
+      expect(queue.entries[1].announcement).toBeUndefined();
+    });
+
+    it('claims no provenance it does not have', () => {
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      const announced = queue.entries[0].sentence;
+      expect(announced.sourceTextItemIds).toEqual([]);
+      expect(announced.transformations).toEqual([]);
+      expect(announced.boundingBoxes).toEqual([]);
+      expect(announced.normalizedStart).toBe(announced.normalizedEnd);
+    });
+
+    it('sits in the paragraph it precedes, so paragraph navigation still works', () => {
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      expect(queue.entries[0].sentence.paragraphId).toBe('body:para0');
+      expect(queue.entries[0].sentence.regionId).toBe('body');
+    });
+
+    it('is never where a reader is returned to after a reload', () => {
+      // resume() falls back to the first sentence at or after the old position;
+      // -1 is never at or after it, so an announcement cannot capture the resume.
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      expect(queue.entries[0].sentence.documentIndex).toBe(-1);
+    });
+
+    it('does not announce a picture on a paragraph the mode skips', () => {
+      // The marker is placed on the header's paragraph, which Clean Mode drops.
+      const queue = buildReadingQueue(
+        regions,
+        sentences,
+        settings(),
+        new Map([['head:para0', [marker]]]),
+      );
+      expect(queue.entries.map((e) => e.sentence.id)).toEqual(['s-body']);
+    });
+
+    it('announces a marker once even when its paragraph has several sentences', () => {
+      const many = [
+        sentence('s-1', 'body', 'First sentence.'),
+        sentence('s-2', 'body', 'Second sentence.'),
+        sentence('s-3', 'body', 'Third sentence.'),
+      ];
+      const queue = buildReadingQueue(regions, many, settings(), markers);
+      const announcements = queue.entries.filter((e) => e.announcement);
+      expect(announcements).toHaveLength(1);
+      expect(queue.entries[0].announcement).toEqual(marker);
+    });
+
+    it('counts the announcement toward the characters that will be synthesized', () => {
+      const queue = buildReadingQueue(regions, sentences, settings(), markers);
+      expect(queue.totalCharacters).toBe(
+        queue.entries.reduce((sum, e) => sum + e.speechText.length, 0),
+      );
+      expect(queue.totalCharacters).toBeGreaterThan(queue.entries[1].speechText.length);
+    });
+  });
 });

@@ -57,6 +57,30 @@ Figure **captions** are detected and read, and are controlled by the "captions"
 category in Custom Mode; that part works. So a figure is usually audible as its
 caption and nothing else.
 
+**The markers are announced in the audio**, under "Say where the pictures are"
+in Settings, on by default. Before this they were on screen only, which meant
+someone listening with the screen off could not tell a page with an
+undescribed figure from a page with nothing to report — the exact gap the
+markers exist to close.
+
+These announcements are the **only** words this application puts into the audio
+that the document does not contain. They are therefore:
+
+- **switchable**, and turning them off changes nothing else — the document's own
+  words are read in the same order either way, verified by test;
+- **marked on screen** wherever they appear, so a reader can see which text is
+  the application's and which is the document's;
+- **carrying no provenance they do not have**: the queue entry has no source
+  text item ids, no bounding boxes, and a zero-width span in the normalized
+  text. Nothing downstream can mistake one for source text;
+- **never the resume target.** Coming back to a document after a reload lands on
+  the document's own words, never on an announcement;
+- **silent on a page that is not being read.** A marker attached to a paragraph
+  the current mode skips is not announced.
+
+They say a picture is there and where. They say nothing about what it shows,
+because this application does not read images.
+
 **Flow charts and diagrams divide into two cases:**
 
 - Drawn as a raster image, the labels are not in the text layer. The figure

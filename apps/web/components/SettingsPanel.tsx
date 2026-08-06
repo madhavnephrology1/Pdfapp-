@@ -35,7 +35,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     void estimateStorageUsage().then(setStorage);
   }, []);
 
-  const { reader, citations, tables } = settings;
+  const { reader, citations, tables, announcements } = settings;
   const strict = settings.readingMode === 'strict-verbatim';
 
   const voiceReport = formatVoiceDiagnostics({
@@ -245,6 +245,36 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 Mode.
               </p>
             </div>
+          </section>
+
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Figures and drawn areas</h3>
+
+            <label className={styles.checkbox}>
+              <input
+                type="checkbox"
+                checked={announcements.speakFigureMarkers}
+                onChange={(event) =>
+                  setSettings({
+                    announcements: { ...announcements, speakFigureMarkers: event.target.checked },
+                  })
+                }
+              />
+              <span>
+                Say where the pictures are
+                <span className="hint">
+                  {' '}
+                  — announce each figure and drawn area in the audio as well as on screen
+                </span>
+              </span>
+            </label>
+            <p className="hint">
+              These announcements are the only words in the audio that the document does not
+              contain, and they are marked as added wherever they appear on screen. They say a
+              picture is there and nothing about what it shows: this application does not read
+              images, so any description would be invented. Turn this off and the markers stay on
+              screen but the audio passes over them in silence.
+            </p>
           </section>
 
           <section className={styles.section}>

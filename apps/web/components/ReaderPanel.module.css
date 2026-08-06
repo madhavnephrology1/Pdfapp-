@@ -169,8 +169,9 @@
   overflow-wrap: anywhere;
 }
 
-/* A figure the reader cannot hear. Stated where it falls in the text, never
-   spoken: describing it would mean inventing words the document does not have. */
+/* A picture the reader cannot hear. Stated where it falls in the text, and
+   announced in the audio when that is switched on. Never described: describing
+   it would mean inventing words the document does not have. */
 .figureMarker {
   margin: 1.1em 0;
   padding: 0.55em 0.9em;
@@ -180,4 +181,17 @@
   font-family: var(--ui-font);
   font-size: 0.82em;
   letter-spacing: 0.01em;
+}
+
+/* The dashed border marks it as not the document's text; the highlight has to
+   read as "being spoken now" without ever looking like source text. */
+.figureMarker[data-active='true'] {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.markerSpoken {
+  font-style: italic;
+  opacity: 0.85;
 }

@@ -37,6 +37,19 @@ export interface TableSettings {
   mode: 'skip' | 'read-in-row-order';
 }
 
+export interface AnnouncementSettings {
+  /**
+   * Speak the figure and drawn-area markers as well as showing them.
+   *
+   * These are the only words in the audio that the document does not contain,
+   * which is why they are behind a switch that says so. With it off the markers
+   * are still on screen, so someone reading loses nothing; with it on, someone
+   * listening with the screen off learns that a picture was there at all, which
+   * is otherwise indistinguishable from there being nothing to report.
+   */
+  speakFigureMarkers: boolean;
+}
+
 export interface DocumentSettings {
   readingMode: ReadingMode;
   categories: CategorySettings;
@@ -44,6 +57,7 @@ export interface DocumentSettings {
   reader: ReaderSettings;
   playback: PlaybackSettings;
   tables: TableSettings;
+  announcements: AnnouncementSettings;
   /** Region id -> explicit user decision. Always wins over automatic rules. */
   regionOverrides: Record<string, 'include' | 'exclude'>;
   /**

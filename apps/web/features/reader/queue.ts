@@ -2,6 +2,7 @@ import type { DocumentRegion, DocumentSettings, SentenceRecord } from '@pdfreade
 import { buildSpeechProjection, type SkippedSpan } from '@/features/classification/citations';
 import { applyReadingMode } from '@/features/classification/modes';
 import type { QueueItem } from '@/features/playback/chunking';
+import { markerSpeech, type PageMarker } from './markers';
 
 /**
  * Builds the reading queue from the document and the current settings.
@@ -16,6 +17,16 @@ export interface ReadingQueueEntry extends QueueItem {
   /** Spans of the displayed sentence that the audio skips, for the strikethrough. */
   skipped: SkippedSpan[];
   regionType: DocumentRegion['type'];
+  /**
+   * Set when this entry is the application speaking rather than the document.
+   *
+   * The only entries this is set on are the figure and drawn-area markers, and
+   * it exists so nothing downstream can mistake them for source text: they
+   * carry no source item ids because they have no source, and the panel marks
+   * them as added words wherever they are shown. They do count toward
+   * `totalCharacters`, because they are synthesized like anything else.
+   */
+  announcement?: PageMarker;
 }
 
 export interface ReadingQueue {
@@ -75,10 +86,50 @@ export function applyFootnoteOrdering(
   });
 }
 
+/**
+ * Builds the synthetic sentence an announcement is carried by.
+ *
+ * The queue is a list of sentences, and an announcement has to travel through
+ * it, so it needs the same shape. Every field that would assert provenance is
+ * left empty: no source text item ids, no bounding boxes, a zero-width span in
+ * the normalized text, and no transformations. The `announcement` field on the
+ * entry is what tells everything downstream that these words came from the
+ * application rather than the document.
+ *
+ * Two fields deliberately do NOT stay empty. The paragraph and region are the
+ * ones the marker was placed on, because they are position rather than
+ * provenance: with them blank, "restart this paragraph" pressed while a marker
+ * was being read jumped to the first marker in the document instead of back to
+ * the passage the listener was in.
+ *
+ * `documentIndex` stays at -1 so that resuming after a reload never lands on an
+ * announcement — the fallback looks for the first sentence at or after the old
+ * position, and -1 is never at or after it. A reader comes back to the
+ * document's own words.
+ */
+function announcementSentence(marker: PageMarker, host: SentenceRecord): SentenceRecord {
+  return {
+    id: marker.id,
+    documentId: host.documentId,
+    pageNumber: marker.pageNumber,
+    regionId: host.regionId,
+    paragraphId: host.paragraphId,
+    text: markerSpeech(marker),
+    normalizedStart: 0,
+    normalizedEnd: 0,
+    sourceTextItemIds: [],
+    boundingBoxes: [],
+    inclusionStatus: 'included',
+    transformations: [],
+    documentIndex: -1,
+  };
+}
+
 export function buildReadingQueue(
   regions: DocumentRegion[],
   sentences: SentenceRecord[],
   settings: DocumentSettings,
+  markers?: Map<string, PageMarker[]>,
 ): ReadingQueue {
   const applied = applyReadingMode(
     regions,
@@ -90,6 +141,13 @@ export function buildReadingQueue(
   const strictVerbatim = settings.readingMode === 'strict-verbatim';
 
   const entries: ReadingQueueEntry[] = [];
+
+  // Announcements are placed before the first sentence of the paragraph they
+  // were attached to, and only when that paragraph actually reaches the audio.
+  // A marker on a paragraph the current mode skips is not announced, so the
+  // audio never mentions a page the listener is not being read.
+  const speakMarkers = settings.announcements.speakFigureMarkers && markers && markers.size > 0;
+  const announced = new Set<string>();
 
   for (const sentence of sentences) {
     const region = byId.get(sentence.regionId);
@@ -107,6 +165,19 @@ export function buildReadingQueue(
     });
 
     if (projection.text.trim() === '') continue;
+
+    if (speakMarkers && !announced.has(sentence.paragraphId)) {
+      announced.add(sentence.paragraphId);
+      for (const marker of markers.get(sentence.paragraphId) ?? []) {
+        entries.push({
+          sentence: announcementSentence(marker, sentence),
+          speechText: markerSpeech(marker),
+          skipped: [],
+          regionType: region.type,
+          announcement: marker,
+        });
+      }
+    }
 
     entries.push({
       sentence,

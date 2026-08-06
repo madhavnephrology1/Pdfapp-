@@ -21,6 +21,10 @@ export const DEFAULT_SETTINGS: DocumentSettings = {
     volume: 1,
   },
   tables: { mode: 'skip' },
+  // On by default. The markers exist so a picture is not passed over in
+  // silence, and someone listening with the screen off is exactly the person
+  // that silence fails.
+  announcements: { speakFigureMarkers: true },
   regionOverrides: {},
   ocrConsent: false,
   ocrRenderScale: DEFAULT_OCR_RENDER_SCALE,
@@ -44,6 +48,7 @@ export function mergeSettings(stored: Partial<DocumentSettings> | undefined): Do
     reader: { ...DEFAULT_SETTINGS.reader, ...stored.reader },
     playback: { ...DEFAULT_SETTINGS.playback, ...stored.playback },
     tables: { ...DEFAULT_SETTINGS.tables, ...stored.tables },
+    announcements: { ...DEFAULT_SETTINGS.announcements, ...stored.announcements },
     regionOverrides: { ...stored.regionOverrides },
   };
 }

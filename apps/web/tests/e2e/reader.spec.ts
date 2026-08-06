@@ -199,6 +199,41 @@ test.describe('text recognition', () => {
   });
 });
 
+test.describe('figures and drawn areas', () => {
+  /**
+   * The chart on this fixture is drawn as lines, so no image is painted and its
+   * labels are ordinary text. The marker is the only thing that tells a reader
+   * the labels belong to a picture rather than to the prose around them.
+   */
+  test('marks a chart drawn as lines, and says so out loud', async ({ page }) => {
+    await upload(page, 'flow-chart');
+
+    const marker = page.locator('#reading-text p', { hasText: 'Drawn area on page 1' });
+    await expect(marker).toBeVisible();
+    // Announcements are the only added words in the audio, so the screen says
+    // which they are.
+    await expect(marker).toContainText('spoken, added by this app');
+    // It never claims to know what the chart shows.
+    await expect(marker).not.toContainText(/shows|depicts|illustrat/i);
+
+    // The labels themselves are still read verbatim, in the reading text.
+    await expect(page.locator('#reading-text')).toContainText('Tumor Cell Lysis');
+  });
+
+  test('the switch really silences it, and leaves the marker on screen', async ({ page }) => {
+    await upload(page, 'flow-chart');
+
+    await page.getByRole('button', { name: /settings/i }).click();
+    const toggle = page.getByRole('checkbox', { name: /Say where the pictures are/ });
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+
+    const marker = page.locator('#reading-text p', { hasText: 'Drawn area on page 1' });
+    await expect(marker).toBeVisible();
+    await expect(marker).not.toContainText('spoken, added by this app');
+  });
+});
+
 test.describe('reading modes', () => {
   test('Strict Verbatim reads the furniture that Clean Mode skips', async ({ page }) => {
     await upload(page, 'two-column-paper');
