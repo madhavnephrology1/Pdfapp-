@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { collectFigures, type FigureRect } from '@/features/extraction/figures';
+import { collectDrawings, collectFigures, type FigureRect } from '@/features/extraction/figures';
 import { partialMilestones } from '@/features/extraction/milestones';
 import { asset } from '@/lib/base-path';
 import { extractDocument, type PageExtractionInput } from '@/features/extraction/pipeline';
@@ -49,6 +49,7 @@ const payloadOf = (result: PipelineResult): ExtractionPayload => ({
   rawItems: result.rawItems,
   bodyFontSize: result.bodyFontSize,
   figures: [],
+  drawings: [],
 });
 
 scope.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
@@ -83,6 +84,7 @@ function postPartialPass(
       type: 'partial',
       ...payloadOf(result),
       figures: [...figures],
+      drawings: [],
       pagesAnalyzed: pageInputs.length,
       pagesTotal: pageCount,
     });
@@ -185,6 +187,7 @@ async function runExtraction(
 
     const pageInputs: PageExtractionInput[] = [];
     const pageFigures: FigureRect[] = [];
+    const pageDrawings: FigureRect[] = [];
     const milestones = new Set(partialMilestones(pageCount));
 
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
@@ -265,14 +268,12 @@ async function runExtraction(
           const page = await doc.getPage(pageNumber);
           const viewport = page.getViewport({ scale: 1 });
           const operatorList = await page.getOperatorList();
+          const ops = pdfjs.OPS as unknown as Parameters<typeof collectFigures>[1];
           pageFigures.push(
-            ...collectFigures(
-              operatorList,
-              pdfjs.OPS as unknown as Parameters<typeof collectFigures>[1],
-              pageNumber,
-              viewport.width,
-              viewport.height,
-            ),
+            ...collectFigures(operatorList, ops, pageNumber, viewport.width, viewport.height),
+          );
+          pageDrawings.push(
+            ...collectDrawings(operatorList, ops, pageNumber, viewport.width, viewport.height),
           );
           page.cleanup();
         } catch (error) {
@@ -314,6 +315,7 @@ async function runExtraction(
       type: 'done',
       ...payloadOf(result),
       figures: [...pageFigures],
+      drawings: [...pageDrawings],
       pagesAnalyzed: pageInputs.length,
       pagesTotal: pageCount,
     });

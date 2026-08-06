@@ -30,6 +30,8 @@ export interface ImageOps {
   paintImageMaskXObject: number;
   paintInlineImageXObject: number;
   paintJpegXObject?: number;
+  /** Vector drawing. Its third argument carries the path's own bounding box. */
+  constructPath?: number;
 }
 
 type Matrix = [number, number, number, number, number, number];
@@ -60,6 +62,64 @@ const apply = (m: Matrix, x: number, y: number): [number, number] => [
  * announcing them as figures would be noise that buries the real ones.
  */
 const MIN_SIDE_RATIO = 0.08;
+
+/**
+ * Finding drawings made of lines rather than pixels.
+ *
+ * A flow chart drawn as vector graphics paints no image, so nothing above sees
+ * it — but its labels ARE in the text layer, and they are read in page order:
+ * top to bottom, left to right. For a branching diagram that is not the order
+ * the diagram means, and the result is plausible prose that is not what the
+ * page says. Unlike a missing figure, a reader cannot hear that it is wrong.
+ *
+ * The paths themselves are what give it away. Each `constructPath` reports its
+ * own bounding box, so the drawn areas can be found the same way images are.
+ */
+const MIN_PATH_SIDE_RATIO = 0.06;
+/** A rule or a box edge is thin. Only areas with real height and width count. */
+const MIN_PATH_AREA_RATIO = 0.01;
+/**
+ * A path covering most of the page is furniture, not a drawing.
+ *
+ * Background washes, page frames and the rectangle a web-to-PDF print puts
+ * behind the body are all painted as one large path. They enclose the page's
+ * ordinary prose, so every test applied to the text inside them is really a
+ * test of the whole page — which is why they slipped through: a page of a
+ * reference guide is mostly short lines, and scored as high on fragments as a
+ * real chart does.
+ *
+ * Measured across five papers. The drawn areas that are genuinely diagrams or
+ * plotted figures cover 0.09–0.58 of their page; the areas that are page
+ * furniture cover 0.81–2.23 (over 1.0 where the path runs past the page edge).
+ * The cap sits in the empty band between them.
+ *
+ * This does trade away a diagram that genuinely fills a whole page. That is the
+ * right way round: missing one leaves the reader where they were before any of
+ * this existed — told nothing — whereas announcing a diagram on every page of a
+ * prose document tells them something untrue.
+ */
+const MAX_PATH_AREA_RATIO = 0.7;
+/**
+ * A path spanning the sheet from edge to edge is a band, not a drawing.
+ *
+ * The same furniture in its other shape: the header strip on a reprint, a
+ * site's navigation bar, the copyright block at the foot of a printed web page.
+ * These are narrow enough to pass the area cap, and their text is short
+ * fragments — "Home", "Privacy Policy", "ARTICLES & ISSUES" — so they scored as
+ * high on fragments as a chart's labels do.
+ *
+ * What actually separates them is where their edges fall. Furniture is painted
+ * to the printable area's edge because that is how a browser lays a page out,
+ * while a figure sits INSIDE the margins because it is placed within the text
+ * block. Measured on the same five papers: the bands span 0.93–1.05 of the page
+ * width (one of them wider than the page), and every genuine diagram spans
+ * 0.42–0.86.
+ *
+ * Both caps come from the same five documents, so both are honest about a
+ * full-bleed figure: it would be missed. That is silence, which is where this
+ * started, rather than a marker announcing a diagram that is not there.
+ */
+const MAX_PATH_WIDTH_RATIO = 0.9;
 
 /**
  * Walks a PDF.js operator list and returns the rectangle each painted image
@@ -129,6 +189,77 @@ export function collectFigures(
   }
 
   return mergeOverlapping(figures);
+}
+
+/**
+ * Returns the areas of the page covered by vector drawing.
+ *
+ * Same walk as `collectFigures`, reading the bounding box each path reports and
+ * carrying it through the transformation matrix in force. Thin paths — rules,
+ * underlines, table borders, the edges of a box — are dropped: it is the areas
+ * with real width AND height that indicate a drawing rather than a line.
+ */
+export function collectDrawings(
+  operatorList: { fnArray: number[]; argsArray: unknown[] },
+  ops: ImageOps,
+  pageNumber: number,
+  pageWidth: number,
+  pageHeight: number,
+): FigureRect[] {
+  if (typeof ops.constructPath !== 'number') return [];
+
+  const drawings: FigureRect[] = [];
+  const stack: Matrix[] = [];
+  let ctm: Matrix = IDENTITY;
+  const minSide = Math.min(pageWidth, pageHeight) * MIN_PATH_SIDE_RATIO;
+  const minArea = pageWidth * pageHeight * MIN_PATH_AREA_RATIO;
+  const maxArea = pageWidth * pageHeight * MAX_PATH_AREA_RATIO;
+
+  for (let i = 0; i < operatorList.fnArray.length; i += 1) {
+    const fn = operatorList.fnArray[i];
+    if (fn === ops.save) {
+      stack.push(ctm);
+      continue;
+    }
+    if (fn === ops.restore) {
+      ctm = stack.pop() ?? IDENTITY;
+      continue;
+    }
+    if (fn === ops.transform) {
+      const args = operatorList.argsArray[i] as number[] | undefined;
+      if (args && args.length >= 6) {
+        ctm = multiply([args[0], args[1], args[2], args[3], args[4], args[5]] as Matrix, ctm);
+      }
+      continue;
+    }
+    if (fn !== ops.constructPath) continue;
+
+    const args = operatorList.argsArray[i] as unknown[] | undefined;
+    const box = args?.[2] as ArrayLike<number> | undefined;
+    if (!box || box.length < 4) continue;
+
+    const corners = [
+      apply(ctm, box[0], box[1]),
+      apply(ctm, box[2], box[1]),
+      apply(ctm, box[0], box[3]),
+      apply(ctm, box[2], box[3]),
+    ];
+    const xs = corners.map((c) => c[0]);
+    const ys = corners.map((c) => c[1]);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    const width = Math.max(...xs) - x;
+    const height = Math.max(...ys) - y;
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    if (width < minSide || height < minSide) continue;
+    if (width * height < minArea) continue;
+    if (width * height > maxArea) continue;
+    if (width > pageWidth * MAX_PATH_WIDTH_RATIO) continue;
+    drawings.push({ pageNumber, x, y, width, height });
+  }
+
+  return mergeOverlapping(drawings);
 }
 
 /**

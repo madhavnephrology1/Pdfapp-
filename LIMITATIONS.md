@@ -57,16 +57,42 @@ Figure **captions** are detected and read, and are controlled by the "captions"
 category in Custom Mode; that part works. So a figure is usually audible as its
 caption and nothing else.
 
-**Flow charts and diagrams divide into two cases, and one is worse:**
+**Flow charts and diagrams divide into two cases:**
 
+- Drawn as a raster image, the labels are not in the text layer. The figure
+  marker says it is there; its contents remain unavailable.
 - Drawn as vector graphics with real text labels, the labels **are** in the text
   layer. They are extracted and read in geometric order — top to bottom, left to
-  right — which for a branching diagram is not the order the diagram means.
-  Nothing marks the passage as a diagram, so it is read as though it were prose.
-  **This case is not handled and not detected**: a vector diagram paints no
-  image, so the figure marker does not appear for it either.
-- Drawn as a raster image, the labels are not in the text layer. The figure
-  marker now says it is there; its contents remain unavailable.
+  right — which for a branching diagram is not the order the diagram means, and
+  a listener cannot hear that it is wrong. A vector diagram paints no image, so
+  the figure marker does not cover it.
+
+  This second case is now **detected but not interpreted**. The operator list is
+  walked a second time for `constructPath`, and each path's own bounding box is
+  carried through the transformation matrix in force, giving the areas of the
+  page covered by vector drawing. An area is marked when the text inside it is
+  mostly short runs — labels and cells rather than sentences.
+
+  **What the marker claims is deliberately narrower than "a diagram".** The
+  measure separates drawn areas from prose, but it does not separate a flow
+  chart from a boxed "Key Points" summary: the text layer splits justified lines
+  into one item per word, so the summary box scores as high on short runs as the
+  chart does. Nothing measured here told them apart, so the marker says a drawn
+  area is present and that its contents are read in page order — true of the
+  chart, the table and the summary box alike — rather than asserting a diagram.
+
+  Two shapes of drawn area are excluded as page furniture, both from measurement
+  across five real papers: a path covering more than 70% of the sheet (background
+  washes and page frames run 81–223% of page area, real drawings 9–58%), and a
+  path spanning more than 90% of the page width (header strips, navigation bars
+  and web-print footers run 93–105%, real drawings 42–86%). **A genuinely
+  full-bleed diagram would therefore be missed**, which leaves a reader where
+  they were before any of this existed rather than announcing something untrue.
+
+  An area already covered by an image figure is not marked twice.
+
+  Nothing here reads the diagram's structure, and nothing describes it. The
+  labels are still read in page order; the marker only says so.
 
 ### Structured table narration
 

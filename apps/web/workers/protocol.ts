@@ -62,6 +62,8 @@ export interface ExtractionPayload {
   bodyFontSize: number;
   /** Painted images, so a figure can be reported rather than passed over. */
   figures: FigureRect[];
+  /** Areas covered by vector drawing, so a diagram can be disclosed. */
+  drawings: FigureRect[];
 }
 
 /**

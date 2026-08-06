@@ -55,6 +55,8 @@ interface DocumentState {
   rawItems: RawTextItem[];
   /** Painted images, so a figure is reported rather than passed over in silence. */
   figures: FigureRect[];
+  /** Areas covered by vector drawing. */
+  drawings: FigureRect[];
   outline: OutlineNode[];
   duplicatesRemoved: number;
 
@@ -202,6 +204,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   sentences: [],
   rawItems: [],
   figures: [],
+  drawings: [],
   outline: [],
   duplicatesRemoved: 0,
   totalPages: 0,
@@ -263,6 +266,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       paragraphs: [],
       rawItems: [],
       figures: [],
+      drawings: [],
       outline: [],
       totalPages: 0,
       pagesAnalyzed: 0,
@@ -329,6 +333,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
             ...composed,
             rawItems: message.rawItems,
             figures: message.figures,
+            drawings: message.drawings,
             duplicatesRemoved: message.duplicatesRemoved,
             queue: buildReadingQueue(composed.regions, composed.sentences, state.settings),
             totalPages: message.pagesTotal || state.totalPages,
@@ -424,6 +429,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       sentences: [],
       rawItems: [],
       figures: [],
+      drawings: [],
       outline: [],
       duplicatesRemoved: 0,
       totalPages: 0,
