@@ -253,6 +253,42 @@ intermedi- lymphoma following malignancies:"*. Five such passages remain in the
 review article measured above, all from one three-column table whose rows are
 too irregular for the current detector. **Not fixed.**
 
+### List bullets
+
+A bulleted list carries no terminating punctuation, so the whole list arrived as
+ONE sentence: *"we perform the following initial evaluation: ● We repeat the
+measurement ● We review the patient's medications ● We review serum
+biochemistry"*. Read aloud that is a single unbroken run — no pause between
+items, and the highlight covering all of them at once. On a clinical reference
+article, **39 of 180 spoken sentences were lists like this**; on a review
+article, 2 more.
+
+A bullet is now a sentence boundary, so each item is its own sentence with its
+own pause and its own highlight. The bullet must stand alone — space before and
+after — so a middle dot inside a value such as "3·5" cannot break a sentence in
+half. Segmentation still only ever SPLITS: the bullet stays in the text and the
+spans concatenate to the input exactly, asserted by test.
+
+The bullet itself is then **not spoken**, skipped at the head of its sentence
+the same way a citation marker is: displayed, struck through, traceable, and
+recorded as `list-marker-skip` rather than mislabelled as a citation. Strict
+Verbatim Mode speaks it like everything else. After the change, none of the
+three articles measured has a bullet reaching the audio, and the two documents'
+sentence counts rose from 180 to 216 and 339 to 344 as their lists came apart
+into items.
+
+### An HTML comment terminator is spoken
+
+One document — a journal's author guide, printed to PDF from a web page — has
+the literal text `-->` in its text layer, and it is read aloud as its own
+sentence. It is markup left behind by the page, not content.
+
+**Not fixed.** One occurrence in 611 spoken sentences of one document is too
+little to build a rule on: anything general enough to catch it would be a
+pattern guessing at what is and is not markup, which is the kind of rule this
+project has repeatedly had to withdraw. Recorded here so it is known rather
+than silently tolerated.
+
 ### Letter-spaced text is read letter by letter
 
 Some publishers set running heads with wide letter spacing, and PDF.js reports

@@ -30,6 +30,13 @@ const NUMERIC_PAREN = /\(\s*\d{1,3}(?:\s*[,;-–]\s*\d{1,3})*\s*\)/g;
  */
 const SUPERSCRIPT = /[¹²³⁰⁴-⁹]+/g;
 /**
+ * A list bullet at the head of a sentence, with the space that follows it.
+ *
+ * Anchored to the start, so this is a position rule wearing a regex: a bullet
+ * anywhere else in the line is left exactly as it is.
+ */
+const LEADING_LIST_MARKER = /^[\s]*[●•▪◦‣·∙][\s]*/g;
+/**
  * "(Smith, 2019)", "(Smith & Jones, 2019; Cho et al., 2021)".
  * Author-year forms only: capitalised names plus a four-digit year.
  */
@@ -104,6 +111,17 @@ export function buildSpeechProjection(
     }
   };
 
+  // A bullet standing at the head of a list item.
+  //
+  // Segmentation has already made each item its own sentence, so the bullet has
+  // done its work by the time speech reaches it; what remains is a character
+  // that engines either voice as "black circle" or drop silently, and neither
+  // is the document's meaning. It is skipped by POSITION at the head of the
+  // sentence, never by pattern anywhere in it, so a bullet used as a symbol
+  // inside a line is untouched. It stays on screen, struck through, like every
+  // other skipped span.
+  collect(LEADING_LIST_MARKER, 'list bullet');
+
   if (settings.skipIsolatedNumericMarkers) {
     collect(NUMERIC_BRACKET, 'isolated numeric citation marker');
     collect(NUMERIC_PAREN, 'isolated numeric citation marker');
@@ -147,7 +165,7 @@ export function buildSpeechProjection(
     anchors.push({ spoken: spoken.length, display: cursor });
     spoken += displayText.slice(cursor, span.start);
     transformations.push({
-      kind: 'citation-marker-skip',
+      kind: span.reason === 'list bullet' ? 'list-marker-skip' : 'citation-marker-skip',
       offset: spoken.length,
       before: span.text,
       after: '',

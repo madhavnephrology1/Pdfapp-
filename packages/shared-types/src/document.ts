@@ -67,7 +67,15 @@ export type TransformationKind =
    * struck through; only the audio skips it, and only when the user's citation
    * settings ask for that. Never applied in Strict Verbatim Mode.
    */
-  | 'citation-marker-skip';
+  | 'citation-marker-skip'
+  /**
+   * A list bullet omitted from the SPOKEN text only, at the head of the list
+   * item it introduces. Sentence segmentation has already made that item its
+   * own sentence, so the bullet's structural work is done; what is left is a
+   * character an engine either voices as "black circle" or drops silently.
+   * The reader still displays it, struck through, exactly as the page has it.
+   */
+  | 'list-marker-skip';
 
 /**
  * A record of one permitted, technical-only transformation.

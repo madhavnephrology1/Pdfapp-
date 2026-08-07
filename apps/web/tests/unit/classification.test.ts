@@ -283,6 +283,33 @@ describe('buildSpeechProjection', () => {
     expect(projection.transformations[0].kind).toBe('citation-marker-skip');
   });
 
+  /**
+   * The bullet has done its work by the time speech reaches it: segmentation
+   * has already made this item its own sentence. What is left is a character an
+   * engine either voices as "black circle" or drops silently.
+   */
+  it('does not speak the bullet at the head of a list item', () => {
+    const text = '● We repeat the measurement to confirm it.';
+    const projection = buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS);
+    expect(projection.text).toBe('We repeat the measurement to confirm it.');
+    expect(projection.skipped).toHaveLength(1);
+    expect(projection.skipped[0].reason).toBe('list bullet');
+    // Recorded as what it is, not as a citation.
+    expect(projection.transformations[0].kind).toBe('list-marker-skip');
+  });
+
+  it('leaves a bullet that is not at the head of the sentence', () => {
+    const text = 'The options are • repeat • review • refer, in that order.';
+    expect(buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS).text).toBe(text);
+  });
+
+  it('speaks the bullet in Strict Verbatim Mode like everything else', () => {
+    const text = '● We repeat the measurement.';
+    expect(
+      buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS, { strictVerbatim: true }).text,
+    ).toBe(text);
+  });
+
   it('keeps a parenthetical author-year citation by default', () => {
     const text = 'Reabsorption falls when the transporter is inhibited (Alvarez, 2019).';
     expect(buildSpeechProjection(text, DEFAULT_CITATION_SETTINGS).text).toBe(text);

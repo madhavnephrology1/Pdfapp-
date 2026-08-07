@@ -68,6 +68,47 @@ describe('segmentSentences', () => {
     ]);
   });
 
+  /**
+   * A bulleted list carries no terminating punctuation, so the whole list
+   * arrived as one sentence: no pause between items, and the highlight covering
+   * all of them at once. On a clinical reference article 39 of 180 spoken
+   * sentences were lists like this.
+   */
+  it('starts a new sentence at each list bullet', () => {
+    expect(
+      texts('We perform the following: ● We repeat the measurement ● We review the medications'),
+    ).toEqual([
+      'We perform the following:',
+      '● We repeat the measurement',
+      '● We review the medications',
+    ]);
+  });
+
+  it('splits on the other bullet shapes too', () => {
+    expect(texts('Causes: • volume loss ▪ poor intake ◦ redistribution')).toEqual([
+      'Causes:',
+      '• volume loss',
+      '▪ poor intake',
+      '◦ redistribution',
+    ]);
+  });
+
+  it('leaves a bullet character that is not standing alone', () => {
+    // A middle dot inside a value must not break the sentence in half.
+    expect(texts('The rate was 3·5 per litre in both arms.')).toEqual([
+      'The rate was 3·5 per litre in both arms.',
+    ]);
+  });
+
+  it('never loses a character when it splits a list', () => {
+    // The invariant the pipeline enforces on every paragraph: the spans must
+    // concatenate to the input exactly, spaces around the bullets included.
+    const input = 'Initial evaluation: ● repeat the level ● review the drugs ● check the urine';
+    const spans = segmentSentences(input);
+    expect(spans.map((s) => s.text).join('')).toBe(input);
+    expect(() => assertSegmentationIsLossless(input, spans)).not.toThrow();
+  });
+
   it('does not split on et al.', () => {
     expect(texts('Described by Cho et al. in a later cohort.')).toEqual([
       'Described by Cho et al. in a later cohort.',

@@ -58,6 +58,22 @@ export interface SentenceSpan {
 const TERMINATORS = new Set(['.', '!', '?', '…']);
 const CLOSERS = new Set(['"', "'", '’', '”', ')', ']', '}', '»']);
 
+/**
+ * Characters that begin a list item.
+ *
+ * A bulleted list carries no terminating punctuation, so the whole list arrived
+ * as ONE sentence: "we perform the following initial evaluation: ● We repeat
+ * the measurement ● We review the patient's medications ● We review serum
+ * biochemistry". Read aloud that is a single unbroken run — no pause between
+ * items, and the highlight covering all of them at once. On a clinical
+ * reference article, 39 of 180 spoken sentences were lists like this.
+ *
+ * The bullet is where one item ends and the next begins, so it is treated as a
+ * boundary. This only ever SPLITS, exactly like every other rule here: the
+ * bullet stays in the text and the spans still concatenate to the input.
+ */
+const LIST_MARKERS = new Set(['●', '•', '▪', '◦', '‣', '·', '∙']);
+
 function isUpperOrDigit(ch: string | undefined): boolean {
   if (!ch) return false;
   return /[\p{Lu}\p{N}"'“‘(\[]/u.test(ch);
@@ -88,6 +104,21 @@ export function segmentSentences(text: string): SentenceSpan[] {
 
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i];
+
+    // A list marker ends the item before it. It must stand alone — preceded by
+    // space and followed by space — so a bullet used as a character inside a
+    // word or a number cannot break a sentence in half.
+    if (
+      LIST_MARKERS.has(ch) &&
+      i > start &&
+      /\s/.test(text[i - 1] ?? '') &&
+      /\s/.test(text[i + 1] ?? '')
+    ) {
+      spans.push({ start, end: i, text: text.slice(start, i) });
+      start = i;
+      continue;
+    }
+
     if (!TERMINATORS.has(ch)) continue;
 
     // Consume repeated terminators and any closing quotes/brackets.
